@@ -31,49 +31,107 @@
 </head>
 <body>
     <div class="hero min-h-screen" style="position: relative; z-index: 10;">
-        <div class="hero-content text-center text-neutral-content">
+        <div class="hero-content text-center">
             <div>
-                <h1 class="text-8xl font-bold">Parallel Reaction Diffusion</h1>
+                <h1 class="text-8xl text-neutral-content font-bold">Parallel Reaction Diffusion</h1>
             </div>
         </div>
     </div>
 
     <div class="min-h-32"></div>
 
-    <div class="flex flex-col justify-center items-center bg-black">
-        <div>
-            <h1 class="text-4xl font-bold">Abstract</h1>
-        </div>
-        <div>
-            <p class="py-6">abstract here</p>
-        </div>
-    </div>
-
-    <div class="min-h-32"></div>
-
-    <div class="flex flex-col justify-center items-center bg-black">
-        <div>
-            <h1 class="text-4xl font-bold">Background</h1>
-        </div>
-        <div>
-            <p class="py-6">abstract here</p>
+    <div class="hero min-h-screen" style="position: relative; z-index: 10;">
+        <div class="hero-content">
+            <div>
+                <h1 class="text-4xl text-neutral-content font-bold mr-32">Abstract</h1>
+            </div>
+            <div class="card backdrop-blur-md">
+                <div class="card-body">
+                    <div class="text-justify">
+                        <p class="py-6 text-secondary-content">
+                            Reaction diffusion is a mathmatical model that captures the phenomena when two reagents diffuse in a space. 
+                            In this project, we hope to explore the possibility of accelerating reaction diffusion simulation across multiple GPUs using CUDA.
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="min-h-32"></div>
+    <div class="hero min-h-screen" style="position: relative; z-index: 10;">
+        <div class="hero-content">
+            <div>
+                <h1 class="text-4xl text-neutral-content font-bold mr-32">Background</h1>
+            </div>
+            <div class="card  backdrop-blur-md">
+                <div class="card-body justify-center items-center">
+                    <div class="text-justify">
+                        <p class="py-6 text-secondary-content">
+                            When two substances that do not react with each other are mixed, they simply diffuse. 
+                            However, if the mixing of the two substances result in a chemical reaction that consumes one of the substances and create more of the other, 
+                            we observe interesting patterns like the one you see happening in the background in real time.
+                        </p>
 
-    <div class="flex flex-col justify-center items-center bg-black">
-        <div>
-            <h1 class="text-4xl font-bold">The Challenge</h1>
-        </div>
-        <div>
-            <p class="py-6">abstract here</p>
+                        <p class="py-6 text-secondary-content">
+                            This is mostly a pixel-wise iterative computation,
+                            where each pixel stores the amount of reagent A and reagent B.
+                            At each time step, every pixel compute the new amount of reagent A and B based on the amount of A and B in itself and its neighbors.
+                            This makes for a great parallel computation problem: its pixel-wise nature allows for parallel computation across the entire image
+                            while presenting an interesting communication challenge between neighboring pixels.
+                            In terms of parallelism, this problem is very similar to the ocean simulation problem we discussed in class.
+                        </p>
+
+                        <p class="py-6 text-secondary-content">
+                            The actual computation is done xxx.
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="min-h-32"></div>
+    <div class="hero min-h-screen" style="position: relative; z-index: 10;">
+        <div class="hero-content">
+            <div>
+                <h1 class="text-4xl text-neutral-content font-bold mr-32">The Challenge</h1>
+            </div>
+            <div class="card  backdrop-blur-md">
+                <div class="card-body justify-center items-center">
+                    <div class="text-justify">
+                        <p class="py-6 text-secondary-content">
+                            As mentioned before, the biggest challenge in this project is the communication between neighboring pixels in the convolution step.
+                            To obtain good speedup at a massive scale, we plan to use a hybrid approach to communication.
+                            On the GPU, we will used a shared memory model to make the best use of the fast cache on CUDA streaming multiprocessors
+                            and use the global memory to communicate between blocks.
+                            One of our goals is to further expand the scale of parallelism by using multiple GPUs (possibility across different nodes.)
+                            At this scale, we will need to use MPI to communicate boarder pixels across GPUs inbetween each iteration. 
+                        </p>
 
-    <div class="flex flex-col justify-center items-center bg-black">
+                        <p class="py-6 text-secondary-content">
+                            The other aspects of this workload should be in our favor.
+                            There should be minimal divergent execution as the calculation for each pixel is identiacal, 
+                            which is great for making the best use of the CUDA cores.
+                            The memory access pattern is also very regular, which should help with memory coalescing.
+                            There is also no need for locks because the computation only reads value from the previous iteration.
+                            There is not a lot of inherent communication between GPUs. So we are not worried about message passing bandwidth.
+                        </p>
+
+                        <p class="py-6 text-secondary-content">
+                            The biggest challenge will be reducing the time spent inbetween iterations.
+                            This time is spent on lauching CUDA kernels,
+                            synchronizing the kernels after each iteration,
+                            transferring data between global memory and shared memory,
+                            transferring data between host and device,
+                            synchronizing the computation across GPUS,
+                            and sending boarder pixels across GPUs.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col justify-center items-center bg-black mx-24 p-12">
         <div>
             <h1 class="text-4xl font-bold">Resources</h1>
         </div>
@@ -82,8 +140,71 @@
         </div>
     </div>
 
-    <div class="flex flex-row justify-center items-center">
-        <a href="https://github.com/LeoLinRui/15418Final/" class="btn btn-primary">GitHub</a>
+    <div class="min-h-32"></div>
+
+    <div class="flex flex-col justify-center items-center bg-black mx-24 p-12">
+        <div>
+            <h1 class="text-4xl font-bold">Goals and Deliverables</h1>
+        </div>
+        <div>
+            <p class="py-6">abstract here</p>
+        </div>
     </div>
+
+    <div class="min-h-32"></div>
+
+    <div class="flex flex-col justify-center items-center bg-black mx-24 p-12">
+        <div>
+            <h1 class="text-4xl font-bold">Platform Choice</h1>
+        </div>
+        <div>
+            <p class="py-6">abstract here</p>
+        </div>
+    </div>
+
+    <div class="min-h-32"></div>
+
+    <div class="flex flex-col justify-center items-center bg-black mx-24 p-12">
+        <div>
+            <h1 class="text-4xl font-bold">Schedule</h1>
+        </div>
+        <div>
+            <p class="py-6">abstract here</p>
+        </div>
+    </div>
+
+    <div class="min-h-32"></div>
+
+    <div class="card flex flex-col justify-center items-center shadow-xl bg-secondary mx-48 p-12">
+        <div class="card-body justify-center items-center ">
+            <div>
+                <h1 class="text-4xl font-bold">Schedule</h1>
+            </div>
+            <div>
+                <p class="py-6">abstract here</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="min-h-32"></div>
+
+    <div class="card flex flex-col justify-center items-center shadow-xl bg-black">
+        <div class="card-body">
+            <div>
+                <h1 class="text-4xl font-bold">Schedule</h1>
+            </div>
+            <div>
+                <p class="py-6">abstract here</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="min-h-32"></div>
+
+    <div class="flex flex-row justify-center items-center">
+        <a href="https://github.com/LeoLinRui/15418Final/" class="btn btn-accent">GitHub</a>
+    </div>
+
+    <div class="min-h-32"></div>
 </body>
 </html>
