@@ -180,7 +180,6 @@ function windowResized() {
 }
 
 
-
 // shading colors
 var pallette = [
   1.00, 1.00, 1.00,
@@ -191,7 +190,6 @@ var pallette = [
   0.50, 0.50, 0.50,
   0.00, 0.00, 0.00
 ];
-
 
 
 function randomizeColors(){
@@ -240,7 +238,6 @@ function draw(){
 }
 
 
-
 function initRD(){
   ortho();
   // translate(-width/2, -height/2, 0);
@@ -271,10 +268,6 @@ function initRD(){
   fbo.end();
 
 }
-
-
-
-
 
 
 function updateRD(){
