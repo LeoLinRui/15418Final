@@ -60,30 +60,32 @@
 
     <div class="hero min-h-screen" style="position: relative; z-index: 10;">
         <div class="hero-content">
-            <div>
-                <h1 class="text-4xl text-neutral-content font-bold mr-32">Background</h1>
-            </div>
-            <div class="card  backdrop-blur-md">
-                <div class="card-body justify-center items-center">
-                    <div class="text-justify">
-                        <p class="py-6 text-secondary-content">
-                            When two substances that do not react with each other are mixed, they simply diffuse. 
-                            However, if the mixing of the two substances result in a chemical reaction that consumes one of the substances and create more of the other, 
-                            we observe interesting patterns like the one you see happening in the background in real time.
-                        </p>
+            <div class="card backdrop-blur-md">
+                <div class="card-body flex flex-row items-center">
+                    <div class="flex-1 mx-24 pr-8">
+                        <h1 class="text-4xl text-neutral-content font-bold text-center">Background</h1>
+                    </div>
+                    <div class="flex-2 justify-center items-center">
+                        <div class="text-justify">
+                            <p class="py-6 text-secondary-content">
+                                When two substances that do not react with each other are mixed, they simply diffuse. 
+                                However, if the mixing of the two substances result in a chemical reaction that consumes one of the substances and create more of the other, 
+                                we observe interesting patterns like the one you see happening in the background in real time.
+                            </p>
 
-                        <p class="py-6 text-secondary-content">
-                            This is mostly a pixel-wise iterative computation,
-                            where each pixel stores the amount of reagent A and reagent B.
-                            At each time step, every pixel compute the new amount of reagent A and B based on the amount of A and B in itself and its neighbors.
-                            This makes for a great parallel computation problem: its pixel-wise nature allows for parallel computation across the entire image
-                            while presenting an interesting communication challenge between neighboring pixels.
-                            In terms of parallelism, this problem is very similar to the ocean simulation problem we discussed in class.
-                        </p>
+                            <p class="py-6 text-secondary-content">
+                                This is mostly a pixel-wise iterative computation,
+                                where each pixel stores the amount of reagent A and reagent B.
+                                At each time step, every pixel compute the new amount of reagent A and B based on the amount of A and B in itself and its neighbors.
+                                This makes for a great parallel computation problem: its pixel-wise nature allows for parallel computation across the entire image
+                                while presenting an interesting communication challenge between neighboring pixels.
+                                In terms of parallelism, this problem is very similar to the ocean simulation problem we discussed in class.
+                            </p>
 
-                        <p class="py-6 text-secondary-content">
-                            The actual computation is done xxx.
-                        </p>
+                            <p class="py-6 text-secondary-content">
+                                The actual computation is done xxx.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
