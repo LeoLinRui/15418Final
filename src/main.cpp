@@ -47,6 +47,13 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    // Computation
+    if (pid == 0) {
+		const double init_time = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - init_start).count();
+		std::cout << "Initialization time (sec): " << std::fixed << std::setprecision(10) << init_time << '\n';
+	}
+	const auto compute_start = std::chrono::steady_clock::now();
+
     // Finalize the MPI environment.
     MPI_Finalize();
 }
