@@ -10,6 +10,7 @@
 #include <random>
 #include <thread>
 #include <cassert>
+#include <CGAL/Simple_cartesian.h>
 
 #include <mpi.h>
 
@@ -38,7 +39,12 @@ int main(int argc, char** argv) {
 
     // Initialization
     if (pid == 0) {
-        
+        typedef CGAL::Simple_cartesian<double> Kernel;
+        typedef Kernel::Point_2 Point_2;
+
+        Point_2 p(1, 1), q(10, 10);
+        std::cout << "Distance from " << p << " to " << q << " is " << sqrt(CGAL::squared_distance(p, q)) << std::endl;
+        return 0;
     }
 
     // Finalize the MPI environment.
