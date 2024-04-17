@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
     printf("Hello world from processor %s, rank %d out of %d processors\n",
            processor_name, pid, world_size);
 
-    // Initialization
+    // Read inputs
     if (pid == 0) {
         typedef CGAL::Simple_cartesian<double> Kernel;
         typedef Kernel::Point_2 Point_2;
@@ -53,6 +53,26 @@ int main(int argc, char** argv) {
 		std::cout << "Initialization time (sec): " << std::fixed << std::setprecision(10) << init_time << '\n';
 	}
 	const auto compute_start = std::chrono::steady_clock::now();
+
+    // Preprocessing
+    if (pid == 0) {
+        std::cout << "Preprocessing..." << std::endl;
+        // run initial refinement
+
+        // divide up the mesh
+
+        // send mesh to other processes
+    }
+
+    // receive local mesh from process 0
+
+    // send right edge to process on the right
+
+    // send bottom edge to process below
+
+    // send bottom right corner to process on the lower diagonal
+
+    // receive 
 
     // Finalize the MPI environment.
     MPI_Finalize();
