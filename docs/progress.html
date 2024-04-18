@@ -1,17 +1,13 @@
 <!DOCTYPE html>
 <html data-theme="luxury">
 <head>
-    <title>418</title>
+    <title>Parallel Delaunay Mesh Refinement</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.8.0/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/addons/p5.sound.min.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    <script src="ReactionDiffusion.js" type="text/javascript"></script>
-    <script src="ShaderRD.js" type="text/javascript"></script>
-    <script src="ShaderDisplay.js" type="text/javascript"></script>
-    <script src="p5-bugs.js" type="text/javascript"></script>
+    <script src="sketch.js"></script>
 
     <style>
         canvas {
@@ -40,7 +36,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </label>
                 </div> 
-                <div class="flex-1 px-2 mx-2"><a href="./index.html">Parallel Reaction Diffusion</a></div>
+                <div class="flex-1 px-2 mx-2"><a href="./index.html">Parallel Delaunay Mesh Refinement</a></div>
                 <div class="flex-none hidden lg:block">
                     <ul class="menu menu-horizontal">
                         <!-- Navbar menu content here -->
@@ -51,11 +47,100 @@
             </div>
 
             <div class="hero min-h-screen" style="position: relative; z-index: 10;">
-                <div class="hero-content text-center">
-                    <div>
-                        <h1 class="text-8xl text-neutral-content font-bold">nothing yet</h1>
+                <div class="hero-content mt-16">
+                    <div class="card backdrop-blur-sm">
+                        <div class="card-body flex flex-row items-center">
+                            <div class="flex-1 mx-24 pr-8">
+                                <h1 class="text-4xl text-neutral-content font-bold text-center">Adapting CGAL</h1>
+                            </div>
+                            <div class="flex-2 justify-center items-center">
+                                <div class="text-justify">
+                                    <p class="py-6 text-secondary-content">
+                                        While it has taken us longer than expected to understand the algorithm, 
+                                        we have successfully figured out how to use the The Computational Geometry Algorithms Library (CGAL) classes 
+                                        to implement the algorithm described in “PARALLEL GUARANTEED QUALITY DELAUNAY UNIFORM MESH REFINEMENT” 
+                                        by Chernikov and Chrisochoides. 
+                                        We will primarily be using the CGAL::Delauay_mesher_2, 
+                                        custom Criteria to effectively parallelize the process, 
+                                        and the Geometric traits of the Delauay_mesher_2 class to do preprocessing calculations on the mesh. 
+
+                                    </p>
+                                    <p class="py-6 text-secondary-content">
+                                        The general “coarse grain partitioning” algorithm presented by the paper is as follows: 
+                                        do a single refinement of the entire mesh to establish bounds for “subdomains” 
+                                        and their “buffer zones” so that those can be refined independently, 
+                                        followed by evenly distributing those to different processors and refining them individually. 
+                                        The refinement described in the paper, called “ParameterizedDelaunayRefinement”, 
+                                        does essentially what GCAL::Delauay_mesher_2’s “refine” function does, 
+                                        so we will use that in place of their pseudocode.
+
+                                        After preprocessing and one refinement is done, 
+                                        we can separate the subdomains using the clusters that build the mesher to then assign them to their initial processors. 
+                                        In GCAL, a mesher is constructed from a list of Clusters, which are groupings of points. 
+                                        With our list of lists of points, 
+                                        it is possible to divide the mesh and independently refine each subdomain. 
+                                        Additionally, to make optimizing one area of a subdomain possible, 
+                                        we will introduce our own Criteria, 
+                                        which GCAL uses to verify the validity of points as it refines the mesh. 
+                                        When we introduce our own criterion, 
+                                        we should be able to control which triangles of the mesh are refined first by indicating which are valid/invalid. 
+                                    </p>
+                                    <p class="py-6 text-secondary-content">
+                                        For communication, we have decided to use a shared-address space message system, 
+                                        where each message is of course a vector of points (more explained in “Challenges”). 
+                                        Given these implementation details, we can assume the same input and output GCAL expects, 
+                                        which is just a list of points, and use GCAL to step through the refinement process. 
+                                        Stepping through the refinement process will help us both debug and visualize the project for ending presentations.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="hero min-h-screen" style="position: relative; z-index: 10;">
+                <div class="hero-content">
+                    <div class="card backdrop-blur-sm">
+                        <div class="card-body flex flex-row items-center">
+                            <div class="flex-1 mx-24 pr-8">
+                                <h1 class="text-4xl text-neutral-content font-bold text-center">Parallelization Design</h1>
+                            </div>
+                            <div class="flex-2 justify-center items-center">
+                                <div class="text-justify">
+                                    <p class="py-6 text-secondary-content">
+                                        The biggest challenge is to reduce the workload imbalance that arises from 
+                                        the drastically different time it takes for different parts of the mesh to converge 
+                                        (even if they are the same size.) 
+                                        The paper we’re following brushes over this since they are using a completely different and 
+                                        custom-made parallelization system that serves as an abstraction for lower-level libraries like 
+                                        OpenMP and MPI. 
+                                        This tool they have, 
+                                        which is described in “A load balancing framework for adaptive and asynchronous applications,” 
+                                        is a general-purpose system that automatically takes care of load balancing for the programmer. 
+                                        So the major challenge of load-balancing is actually not a solved problem and 
+                                        we need to figure that out ourselves through experimentation, 
+                                        which is what makes our project interesting and technically challenging. 
+                                        The version we’re implementing right now is going to use a shared-address space model and be lock-free. 
+                                        By following a sequence of synchronization points, 
+                                        we will be able to ensure that each processor is working on an independent chunk at any given time. 
+                                        We’re using dynamic work assignment in between the synchronization points to keep all the processors busy as much as possible.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body flex flex-col justify-center items-center shadow-xl bg-black">
+                <div class="flex flex-row text-center justify-center items-center">
+                    <a href="https://github.com/LeoLinRui/15418Final/" class="btn btn-accent">GitHub</a>
+                </div>
+
+                <p class="py-6 text-accent">
+                    Background visual adapted from 3D Terrain Generation with Perlin Noise by Daniel Shiffman
+                </p>
             </div>
         </div>
     </div>

@@ -1,17 +1,13 @@
 <!DOCTYPE html>
 <html data-theme="luxury">
 <head>
-    <title>418</title>
+    <title>Parallel Delaunay Mesh Refinement</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.8.0/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/addons/p5.sound.min.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    <script src="ReactionDiffusion.js" type="text/javascript"></script>
-    <script src="ShaderRD.js" type="text/javascript"></script>
-    <script src="ShaderDisplay.js" type="text/javascript"></script>
-    <script src="p5-bugs.js" type="text/javascript"></script>
+    <script src="sketch.js"></script>
 
     <style>
         canvas {
@@ -40,7 +36,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </label>
                 </div> 
-                <div class="flex-1 px-2 mx-2"><a href="./index.html">Parallel Reaction Diffusion</a></div>
+                <div class="flex-1 px-2 mx-2"><a href="./index.html">Parallel Delaunay Mesh Refinement</a></div>
                 <div class="flex-none hidden lg:block">
                     <ul class="menu menu-horizontal">
                         <!-- Navbar menu content here -->
@@ -51,17 +47,17 @@
             </div>
 
             <div class="hero min-h-screen" style="position: relative; z-index: 10;">
-                <div class="hero-content text-center">
+                <div class="hero-content text-center mt-16">
                     <div>
-                        <h1 class="text-8xl text-neutral-content font-bold">Parallel Reaction Diffusion</h1>
+                        <h1 class="text-8xl text-neutral-content font-bold">Parallel Delaunay Mesh Refinement</h1>
                         <!-- <a class="text-4xl" href="./15418 Proposal.pdf" download>Download Proposal</a> -->
                     </div>
                 </div>
             </div>
 
             <div class="hero min-h-screen" style="position: relative; z-index: 10;">
-                <div class="hero-content">
-                    <div class="card backdrop-blur-md">
+                <div class="hero-content mt-16">
+                    <div class="card backdrop-blur-sm">
                         <div class="card-body flex flex-row items-center">
                             <div class="flex-1 mx-24 pr-8">
                                 <h1 class="text-4xl text-neutral-content font-bold text-center">Abstract</h1>
@@ -69,8 +65,13 @@
                             <div class="flex-2 justify-center items-center">
                                 <div class="text-justify">
                                     <p class="py-6 text-secondary-content">
-                                        Reaction diffusion is a mathmatical model that captures the phenomena when two reagents diffuse in a space. 
-                                        In this project, we hope to explore the possibility of accelerating reaction diffusion simulation across multiple GPUs using CUDA.
+                                        Delaunay Refinement is a way to generate high quality meshes for various applications,
+                                        including fluid simulations. While algorithms do exist that give good meshes, they are difficult to
+                                        scale, especially when applied to 3D inputs. In our project, we will utilize the theoretical
+                                        strategies researched by Andrey Chernikov and Nikos Chrisochoides to efficiently parallelize and
+                                        scale the refinement process. The main strategy revolves around a “block course-grained mesh
+                                        decomposition” and concurrent point insertion, which minimizes non-local communication at
+                                        the expense of some dynamic load balancing.
                                     </p>
                                 </div>
                             </div>
@@ -81,7 +82,7 @@
 
             <div class="hero min-h-screen" style="position: relative; z-index: 10;">
                 <div class="hero-content">
-                    <div class="card backdrop-blur-md">
+                    <div class="card backdrop-blur-sm">
                         <div class="card-body flex flex-row items-center">
                             <div class="flex-1 mx-24 pr-8">
                                 <h1 class="text-4xl text-neutral-content font-bold text-center">Background</h1>
@@ -89,18 +90,17 @@
                             <div class="flex-2 justify-center items-center">
                                 <div class="text-justify">
                                     <p class="py-6 text-secondary-content">
-                                        When two substances that do not react with each other are mixed, they simply diffuse. 
-                                        However, if the mixing of the two substances result in a chemical reaction that consumes one of the substances and create more of the other, 
-                                        we observe interesting patterns like the one you see happening in the background in real time.
-                                    </p>
-
-                                    <p class="py-6 text-secondary-content">
-                                        This is mostly a pixel-wise iterative computation,
-                                        where each pixel stores the amount of reagent A and reagent B.
-                                        At each time step, every pixel compute the new amount of reagent A and B based on the amount of A and B in itself and its neighbors.
-                                        This makes for a great parallel computation problem: its pixel-wise nature allows for parallel computation across the entire image
-                                        while presenting an interesting communication challenge between neighboring pixels.
-                                        In terms of parallelism, this problem is very similar to the ocean simulation problem we discussed in class.
+                                        All digital simulations and models of objects are approximations based on the number of
+                                        polygons used to approximate the actual surface of the object being modeled. The more
+                                        polygons there are, the more realistic the model looks, and consequently the more time it takes
+                                        for the object to render. However, just adding more polygons to a model is inefficient, and the
+                                        task for modeling has become how to simulate the necessary surface with the least amount of
+                                        polygons possible. The Delaunay Triangulation is a common “mesh”, or polygon mapping, to
+                                        accomplish this task with high quality. To simulate large models, an initial Delaunay
+                                        Triangulation is typically done and then points are inserted into the mesh until a certain quality
+                                        is met, while keeping some Triangulation invariants called a “constrained Delaunay
+                                        triangulation”. Sequential algorithms exist to accomplish this refinement, such as Chew’s and
+                                        Ruppert’s algorithms (both piecewise linear systems).
                                     </p>
                                 </div>
                             </div>
@@ -111,7 +111,7 @@
 
             <div class="hero min-h-screen" style="position: relative; z-index: 10;">
                 <div class="hero-content">
-                    <div class="card backdrop-blur-md">
+                    <div class="card backdrop-blur-sm">
                         <div class="card-body flex flex-row items-center">
                             <div class="flex-1 mx-24 pr-8">
                                 <h1 class="text-4xl text-neutral-content font-bold text-center">The Challenge</h1>
@@ -119,35 +119,19 @@
                             <div class="flex-2 justify-center items-center">
                                 <div class="text-justify">
                                     <p class="py-6 text-secondary-content">
-                                        As mentioned before, the biggest challenge in this project is the communication between neighboring pixels in the convolution step.
-                                        To obtain good speedup at a massive scale, we plan to use a hybrid approach to communication.
-                                        On the GPU, we will used a shared memory model to make the best use of the fast cache on CUDA streaming multiprocessors
-                                        and use the global memory to communicate between blocks.
-                                        One of our goals is to further expand the scale of parallelism by using multiple GPUs (possibility across different nodes.)
-                                        At this scale, we will need to use MPI to communicate boarder pixels across GPUs inbetween each iteration. 
-                                    </p>
-            
-                                    <p class="py-6 text-secondary-content">
-                                        The other aspects of this workload should be in our favor.
-                                        There should be minimal divergent execution as the calculation for each pixel is identiacal, 
-                                        which is great for making the best use of the CUDA cores.
-                                        The memory access pattern is also very regular, which should help with memory coalescing.
-                                        There is also no need for locks because the computation only reads value from the previous iteration.
-                                        There is not a lot of inherent communication between GPUs. So we are not worried about message passing bandwidth.
-                                    </p>
-            
-                                    <p class="py-6 text-secondary-content">
-                                        The biggest challenge will be reducing the time spent inbetween iterations.
-                                        This time is spent on lauching CUDA kernels,
-                                        synchronizing the kernels after each iteration,
-                                        transferring data between global memory and shared memory,
-                                        transferring data between host and device,
-                                        synchronizing the computation across GPUS,
-                                        and sending boarder pixels across GPUs.
-                                        If we were to save intermediates states to disk, 
-                                        we would also need to worry about I/O as it is a lot of bandwidth (>100GB per time step.)
-                                        We'll start with just saving the final state of the diffusion 
-                                        and test the IO performance along the way to see if we can save intermediate states.
+                                        The largest challenge in generating high quality meshes is how to efficiently parallelize the
+                                        insertion of points, or refinement of the mesh. In dividing the regions of the mesh between
+                                        processors, some might get more work depending on which points are inserted, which means
+                                        there needs to be either more dynamic load balancing or a better way to divide the mesh
+                                        computation in the first place. To achieve higher parallelism for Delaunay refinement, there
+                                        have been efforts to identify which properties of the triangles/polygons in the mesh remain
+                                        independent to allow for concurrent insertion of points while keeping the target invariants. In
+                                        “PARALLEL GUARANTEED QUALITY DELAUNAY UNIFORM MESH REFINEMENT”, CHERNIKOV and
+                                        CHRISOCHOIDES propose their coarse grain partitioning approach for 2D mesh generation.
+                                        Experimentation and expansion into 3D inputs is not done in the paper, and will be our ultimate
+                                        goal to extend the utility of their algorithm to these. At the moment, since we are in the midst
+                                        of refining our exact project deliverables, the actual 3D inputs that we would generate meshes
+                                        for are to be determined later.
                                     </p>
                                 </div>
                             </div>
@@ -158,7 +142,7 @@
 
             <div class="hero min-h-screen" style="position: relative; z-index: 10;">
                 <div class="hero-content">
-                    <div class="card backdrop-blur-md">
+                    <div class="card backdrop-blur-sm">
                         <div class="card-body flex flex-row items-center">
                             <div class="flex-1 mx-24 pr-8">
                                 <h1 class="text-4xl text-neutral-content font-bold text-center">Resources</h1>
@@ -166,18 +150,9 @@
                             <div class="flex-2 justify-center items-center">
                                 <div class="text-justify">
                                     <p class="py-6 text-secondary-content">
-                                        We expect to develop on the GHC machines and run larger scale experiments on the PSC GPU nodes, 
-                                        which would allows us to test parallelism across multiple GPUs. 
-                                        If time permits, we will also try parallelizing across multiple nodes.
-                                    </p>
-
-                                    <p class="py-6 text-secondary-content">
-                                        There are some existing C++ implementations of reaction diffusion simulation that we can reference
-                                        as we work on a CUDA implementation. 
-                                        Reaction diffusion is not a complicated algorithm so we do not expect to run into any major roadblocks there.
-                                        There are a few <a href="http://karlsims.com/rd.html">websites</a> 
-                                        and <a href="https://www.youtube.com/watch?v=BV9ny785UNc&ab_channel=TheCodingTrain">videos</a> 
-                                        that provides a good introduction to reaction diffusion.
+                                        We will be using a variety of repositories and articles as beginning resources, which include <br>
+                                        <a class="underline" href="https://epubs.siam.org/doi/abs/10.1137/050625886">PARALLEL GUARANTEED QUALITY DELAUNAY UNIFORM MESH REFINEMENT</a> <br>
+                                        and the The Computational Geometry Algorithms Library.
                                     </p>
                                 </div>
                             </div>
@@ -188,67 +163,7 @@
 
             <div class="hero min-h-screen" style="position: relative; z-index: 10;">
                 <div class="hero-content">
-                    <div class="card backdrop-blur-md">
-                        <div class="card-body flex flex-row items-center">
-                            <div class="flex-1 mx-24 pr-8">
-                                <h1 class="text-4xl text-neutral-content font-bold text-center">Goals and Deliverables</h1>
-                            </div>
-                            <div class="flex-2 justify-center items-center">
-                                <div class="text-justify">
-                                    <p class="py-6 text-secondary-content">
-                                        Our planned goal is to compute a 1000x1000x1000 3D reaction diffusion with video constructed from intermediate images of the state.
-                                        We hope to minimize the I/O and get close to live video for the reaction. We would work towards this throughout the project by
-                                        trying to achieve live video for smaller numbers of pixels, around 250x250x250.<br>
-                                    </p>
-
-                                    <p class="py-6 text-secondary-content">
-                                        It's hard to make a concrete goal for speedup, 
-                                        especially for the comparison between the single-GPU implementation and the CPU implementation.
-                                        But we hope to see a better than 50% speedup when parallelizing across multiple GPUs 
-                                        (i.e. 8 GPUs will run at least 4 times faster than a single GPU.)
-                                    </p>
-
-                                    <p class="py-6 text-secondary-content">
-                                        Deliverables are tied to our schedule. For each date below, the deliverable is next to it:<br>
-                                        April 9: Unoptimized working code with visualization<br>
-                                        April 14: Slideshow made from the intermediate states <br>
-                                        April 16: Milestone Report, including current video capabilities <br>
-                                        April 23: Experiment data verifying optimization of I/O and compute times <br>
-                                        April 31: Demo video<br>
-                                        May 5th: Final Project Report, Poster<br>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="hero min-h-screen" style="position: relative; z-index: 10;">
-                <div class="hero-content">
-                    <div class="card backdrop-blur-md">
-                        <div class="card-body flex flex-row items-center">
-                            <div class="flex-1 mx-24 pr-8">
-                                <h1 class="text-4xl text-neutral-content font-bold text-center">Platform Choices</h1>
-                            </div>
-                            <div class="flex-2 justify-center items-center">
-                                <div class="text-justify">
-                                    <p class="py-6 text-secondary-content">
-                                        We'll use C++ and CUDA as our main langauges 
-                                        as they are the most suitable for the GPU programming needs of this project.
-                                        We will use MPI to communicate between GPUs. These are the tools that we are most familiar with 
-                                        and are the most suitable for the computation needs of reaction diffusion.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="hero min-h-screen" style="position: relative; z-index: 10;">
-                <div class="hero-content">
-                    <div class="card backdrop-blur-md">
+                    <div class="card backdrop-blur-sm">
                         <div class="card-body flex flex-row items-center">
                             <div class="flex-1 mx-24 pr-8">
                                 <h1 class="text-4xl text-neutral-content font-bold text-center">Schedule</h1>
@@ -256,13 +171,12 @@
                             <div class="flex-2 justify-center items-center">
                                 <div class="text-justify">
                                     <p class="py-6 text-secondary-content">
-                                        March 27: Proposal<br>
-                                        April 9: Unoptimized working code on a single GPU, no real-time I/O for results. <br>
-                                        April 14: Finish performance debugging on a single GPU and preliminary experiments. <br>
-                                        April 16: Milestone Report; stream intermediate states at a reasonable rate (tackle I/O challenge.) <br>
-                                        April 23: Working multi-GPU implementation using message passing. <br>
-                                        April 31: Performance debugging multi-GPU, multi-node implementation; further I/O optimization. <br>
-                                        May 5th: Experiments and testing; Final Project Report; Poster. <br>
+                                        4/18: Finish a mesh refinement function that allows user-defined predicate to refine triangles in a subset <br>
+                                        4/19: Finish up the scheduling code that distributes refinement tasks (shared-address-space model) <br>
+                                        4/20: Complete pre-processing and loading code <br>
+                                        4/23: Finish the shared-address-space implementation <br>
+                                        4/24 - 4/30: Performance debugging <br>
+                                        5/1 - 5/5: Testing on PSC, writing up reports <br>
                                     </p>
                                 </div>
                             </div>
@@ -277,7 +191,7 @@
                 </div>
 
                 <p class="py-6 text-accent">
-                    Realtime Reaction Diffusion Simulation by Thomas Diewald is licensed under the MIT License.
+                    Background visual adapted from 3D Terrain Generation with Perlin Noise by Daniel Shiffman
                 </p>
             </div>
         </div>
