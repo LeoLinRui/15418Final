@@ -31,25 +31,43 @@ int main(int argc, char** argv) {
     // Preprocessing
     std::cout << "Preprocessing..." << std::endl;
     // run initial sequential refinement
+    mesh = sequentialRefineMesh(mesh);
 
-    // divide up the mesh
+    // divide up the mesh (re-zone) and create a list of (zones)
+    zones = createZones(mesh, PHASE); // calculate metrics that determine grid size, create a zone for each refinement area, put them in a list
+    
 
-    #pragma omp parallel for
-
+    #pragma omp parallel for // loop through all the zones
+    for (zone : zones)
     {
-
+        // optimize this zone
+        refineZone(zone);
     }
 
-    // receive local mesh from process 0
+    // divide up the mesh  (re-zone)
 
-    // send right edge to process on the right
+    // create a list of (zones)
 
-    // send bottom edge to process below
+    #pragma omp parallel for // loop through all the zones
+    {
+        // optimize this zone
+    }
 
-    // send bottom right corner to process on the lower diagonal
+    // divide up the mesh  (re-zone)
 
-    // receive 
+    // create a list of (zones)
 
-    // Finalize the MPI environment.
-    MPI_Finalize();
+    #pragma omp parallel for // loop through all the zones
+    {
+        // optimize this zone
+    }
+
+    // divide up the mesh  (re-zone)
+
+    // create a list of (zones)
+
+    #pragma omp parallel for // loop through all the zones
+    {
+        // optimize this zone
+    }
 }
