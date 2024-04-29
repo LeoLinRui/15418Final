@@ -32,37 +32,5 @@ int main(int argc, char** argv) {
     std::vector<Zone2*> zones = createZones(mesh, UPPER_LEFT); // calculate metrics that determine grid size, create a zone for each refinement area, put them in a list
     
 
-    #pragma omp parallel for // loop through all the zones
-    for (Zone2* zone : zones)
-    {
-        // optimize this zone
-        refineZone(zone);
-    }
-
-    // divide up the mesh  (re-zone)
-
-    // create a list of (zones)
-
-    #pragma omp parallel for // loop through all the zones
-    {
-        // optimize this zone
-    }
-
-    // divide up the mesh  (re-zone)
-
-    // create a list of (zones)
-
-    #pragma omp parallel for // loop through all the zones
-    {
-        // optimize this zone
-    }
-
-    // divide up the mesh  (re-zone)
-
-    // create a list of (zones)
-
-    #pragma omp parallel for // loop through all the zones
-    {
-        // optimize this zone
-    }
+    
 }
