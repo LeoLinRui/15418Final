@@ -129,7 +129,19 @@ struct GlobalMesh {
 
     }
     
-    Fade_2D refineMesh(Fade_2D mesh) {
+    /*
+    Sequentially refine the entire mesh.
+    */
+    Fade_2D refineMesh() {
+
+    }
+
+    /*
+    Given the number of processors, split the mesh and create a localMesh object.
+    Populates all the fields (depending on if initZones is true, populate the zones)
+    Return a vector of localMeshes of length nproc.
+    */
+    std::vector<LocalMesh> splitMesh(int nproc, bool initZones) {
 
     }
 };
