@@ -1,8 +1,23 @@
-#include <Fade_2D.h>
-#include <stdio.h>
 #include <optional>
+#include <stdio.h>
+#include <algorithm>
+#include <iostream>
+#include <unistd.h>
+#include <fstream>
+#include <iomanip>
+#include <chrono>
+#include <string>
+#include <vector>
+#include <random>
+#include <thread>
+#include <cassert>
+
+#include <Fade_2D.h>
+#include <boost/mpi.hpp>
+#include <boost/serialization/optional.hpp>
 
 using namespace GEOM_FADE2D;
+namespace mpi = boost::mpi;
 
 
 struct RuntimeParameters {
@@ -18,48 +33,28 @@ struct RuntimeParameters {
 
 
 struct LocalMesh {
+private:
+    const std::vector<std::string> zoneNames = {
+        // Main
+        "MainTL", "MainTR", "MainBL", "MainBR",
+        // Inner edges
+        "InnerTop", "InnerBottom", "InnerRight", "InnerLeft",
+        // Outer edges
+        "OuterTop", "OuterTopL", "OuterTopR",
+        "OuterBottom", "OuterBottomL", "OuterBottomR",
+        "OuterRight", "OuterRightT", "OuterRightB",
+        "OuterLeft", "OuterLeftT", "OuterLeftB",
+        // Corners
+        "InnerTL", "InnerTR", "InnerBL", "InnerBR",
+        "OuterTL", "OuterTR", "OuterBL", "OuterBR"
+    };
+
+public:
     // Triangulation
     Fade_2D mesh;
 
-    // Zones - Main
-    Zone2* MainTL;
-    Zone2* MainTR;
-    Zone2* MainBL;
-    Zone2* MainBR;
-
-    // Zones - Inner Edges
-    Zone2* InnerTop;
-    Zone2* InnerBottom;
-    Zone2* InnerRight;
-    Zone2* InnerLeft;
-
-    // Zones - Outer Edges
-    Zone2* OuterTop;
-    Zone2* OuterTopL;
-    Zone2* OuterTopR;
-
-    Zone2* OuterBottom;
-    Zone2* OuterBottomL;
-    Zone2* OuterBottomR;
-
-    Zone2* OuterRight;
-    Zone2* OuterRightT;
-    Zone2* OuterRightB;
-
-    Zone2* OuterLeft;
-    Zone2* OuterLeftT;
-    Zone2* OuterLeftB;
-
-    // Zones - Corners
-    Zone2* InnerTL;
-    Zone2* InnerTR;
-    Zone2* InnerBL;
-    Zone2* InnerBR; 
-
-    Zone2* OuterTL;
-    Zone2* OuterTR;
-    Zone2* OuterBL;
-    Zone2* OuterBR; 
+    // Zones
+    std::unordered_map<std::string, Zone2*> zones;
 
     // Neighboring meshes
     std::optional<int> NeighborLeft;
@@ -75,12 +70,16 @@ struct LocalMesh {
     // Parameters
     int maxCircumradius; // max circumradius in the entire mesh
 
+    LocalMesh() {
+        // populate zones map with placeholder values
+    }
+    
     /*
     Creates a local mesh struct with a mesh and the max circumradius.
     Likely called on the main thread.
     */
     LocalMesh(Fade_2D mesh, int r) {
-
+        // populate zones map with placeholder values
     }
 
     /*
@@ -117,6 +116,52 @@ struct LocalMesh {
     void refineZones(std::vector<Zone2*> zone) {
 
     }
+
+    /*
+    Serializer for boost::serialization
+    */
+    template<class Archive>
+    void serialize(Archive & archive, const unsigned version) {
+        std::string meshData;
+        if (Archive::is_saving::value) {
+            // Serialization
+            std::ostringstream stream;
+            std::vector<Zone2*> zoneVector;
+            for (auto& name : zoneNames) {
+                zoneVector.push_back(zones[name]);
+            }
+
+            mesh.saveTriangulation(stream, zoneVector);
+            meshData = stream.str();
+        }
+        archive & meshData;
+        if (Archive::is_loading::value) {
+            // Deserialization
+            std::istringstream stream;
+            stream << meshData;
+            std::vector<Zone2*> zoneVector;
+            mesh.load(stream, zoneVector);
+            
+            size_t i = 0;
+            for (auto& zone : zoneVector) {
+                zones[zoneNames[i]] = zone;
+                i++;
+            }
+        }
+
+        // (De)serialize the simple fields
+        archive & NeighborLeft;
+        archive & NeighborRight;
+        archive & NeighborTop;
+        archive & NeighborBottom;
+
+        archive & NeighborTL;
+        archive & NeighborTR;
+        archive & NeighborBL;
+        archive & NeighborBR;
+
+        archive & maxCircumradius;
+    }
 };
 
 
@@ -143,6 +188,63 @@ struct GlobalMesh {
     */
     std::vector<LocalMesh> splitMesh(int nproc, bool initZones) {
 
+    }
+};
+
+
+class Communicator {
+public:
+    int pid;
+    int nproc;
+
+    Communicator(int& argc, char**& argv) {
+        MPI_Init(&argc, &argv);
+        MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+        MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+    }
+
+    ~Communicator() {
+        MPI_Finalize();
+    }
+
+    void send(const std::vector<char>& data, int dest, int tag) const {
+        MPI_Send(data.data(), data.size(), MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+    }
+
+    std::vector<char> receive(int source, int tag) const {
+        MPI_Status status;
+        MPI_Probe(source, tag, MPI_COMM_WORLD, &status);
+        
+        int count;
+        MPI_Get_count(&status, MPI_CHAR, &count);
+        std::vector<char> buffer(count);
+        
+        MPI_Recv(buffer.data(), count, MPI_CHAR, source, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        return buffer;
+    }
+
+    void asyncSend(const std::vector<char>& data, int dest, int tag, MPI_Request* request) const {
+        MPI_Isend(data.data(), data.size(), MPI_CHAR, dest, tag, MPI_COMM_WORLD, request);
+    }
+
+    // Asynchronous receive, returns true if started receiving
+    bool asyncReceive(std::vector<char>& buffer, int source, int tag, MPI_Request* request) const {
+        MPI_Status status;
+        int flag;
+        MPI_Iprobe(source, tag, MPI_COMM_WORLD, &flag, &status);
+        
+        if (flag) {
+            int count;
+            MPI_Get_count(&status, MPI_CHAR, &count);
+            buffer.resize(count);
+            MPI_Irecv(buffer.data(), count, MPI_CHAR, source, tag, MPI_COMM_WORLD, request);
+            return true;
+        }
+        return false;
+    }
+
+    void waitFor(MPI_Request* request) const {
+        MPI_Wait(request, MPI_STATUS_IGNORE);
     }
 };
 
