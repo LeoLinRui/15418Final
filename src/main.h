@@ -54,7 +54,7 @@ private:
 
 public:
     // Triangulation
-    Fade_2D mesh; // TODO use SerializableMesh
+    SerializableMesh mesh; // TODO use SerializableMesh
 
     // Zones
     std::unordered_map<std::string, Zone2*> zones;
@@ -93,7 +93,41 @@ public:
     Likely called on the worker thread.
     */
     void initZones() {
+        std::vector<Triangle2*> triangles;
+        mesh.getTrianglePointers(triangles);
 
+        std::vector<Bbox2*> bboxes;
+        std::vector<Zone> zoneDescriptors;
+        for (auto& zone : zoneDescriptors) {
+            // TODO: calculate the coordinates for each zone
+
+            // make Bbox
+            Bbox2 bbox;
+            bbox.setMaxX(.0);
+            bbox.setMinX(.0);
+            bbox.setMaxY(.0);
+            bbox.setMinY(.0);
+
+            bboxes.push_back(&bbox);
+        }
+
+        // go through the triangle list and populate zones
+        std::vector<std::vector<Triangle2*>> triangleLists;
+        for (auto& triangle : triangles) {
+            Point2 center = triangle->getBarycenter();
+            for (auto& bbox : bboxes) {
+                if (bbox->isInBox(center)) {
+                    // TODO: add to zone
+                    triangleLists[0].push_back(triangle);
+                }
+            }
+        }
+
+        // create zones
+        std::vector<Zone2*> zones;
+        for (auto& list : triangleLists) {
+            zones.push_back(mesh.createZone(list, true));
+        }
     }
 
     /*
@@ -101,22 +135,34 @@ public:
     Then insert all the triangles in the provided serializedTriangulation in to mesh.
     A new Zone2 should be created, the corresponding field in the struct updated.
     */
-    void updateZone(Zone2* zone, std::string serializedTriangulation) {
+    void updateZone(Zone2* zone, SerializableMesh* incomingMesh) {
+        // remove the old zone
+        std::vector<Point2*> oldVertices;
+        zone->getVertices(oldVertices);
+        mesh.remove(oldVertices);
+        mesh.deleteZone(zone);
 
-    }
-
-    /*
-    Serialize the zone into a string so that it can be sent over MPI.
-    */
-    std::string serializeZone(Zone2* zone) {
-
+        // add the new zone
+        std::vector<Point2*> newVertices;
+        incomingMesh->getVertexPointers(newVertices);
+        for (auto& vertexPointer : newVertices) {
+            mesh.insert(*vertexPointer);
+        }
     }
 
     /*
     Refine the provided list of zones as one zone (not sequentially)
     */
-    void refineZones(std::vector<std::string> zone) {
+    void refineZones(std::vector<Zone2*> zones) {
+        // union all the zones into combinedZones
+        Zone2* combinedZone = zones.back();
+        zones.pop_back();
+        for (auto& zone : zones) {
+            combinedZone = zoneUnion(combinedZone, zone);
+        }
 
+        // refine the mesh in the zone
+        mesh.refine(combinedZone, 20, 1, 10, true);
     }
 
     /*
@@ -124,36 +170,8 @@ public:
     */
     template<class Archive>
     void serialize(Archive & archive, const unsigned version) {
-        std::string meshData;
-        if (Archive::is_saving::value) {
-            // Serialization
-            std::ostringstream stream;
-            std::vector<Zone2*> zoneVector;
-            for (auto& name : zoneNames) {
-                zoneVector.push_back(zones[name]);
-            }
-
-            mesh.saveTriangulation(stream, zoneVector);
-            meshData = stream.str();
-        }
-        archive & meshData;
-        if (Archive::is_loading::value) {
-            // Deserialization
-            std::istringstream stream;
-            stream << meshData;
-            std::vector<Zone2*> zoneVector;
-            mesh.load(stream, zoneVector);
-            
-            size_t i = 0;
-            for (auto& zone : zoneVector) {
-                zones[zoneNames[i]] = zone;
-                i++;
-            }
-        }
-
-        // (De)serialize the simple fields
+        archive & mesh;
         archive & neighbors;
-
         archive & maxCircumradius;
     }
 };
@@ -368,10 +386,10 @@ struct MeshUpdate {
 };
 
 // TODO
-std::unordered_map<Phase, std::vector<Zone>> sendList = 
+std::unordered_map<Phase, std::vector<std::pair<Zone, Zone>>> sendList = 
 {
     {
-        PhaseTopLeft, 
+        Phase::TopLeft, 
     {
         "InnerTL", "OuterTL" "InnerLeft", "OuterLeft", "OuterLeftTop", "OuterLeftBottom"
     }
