@@ -1,5 +1,38 @@
 #include "main.hpp"
 
+enum class Operation {
+    Send,
+    Receive,
+    Refine
+};
+
+struct Task {
+    Operation operation;
+    std::optional<Neighbor> target;
+
+    // takes a bbox that defines the local mesh's zone and the max circumradius
+    // returns a box that specifies the area where the operation shall be performed
+    std::function<Bbox2(Bbox2*, double)> bbox; 
+
+    Task(Operation operation, Neighbor target, std::function<Bbox2(Bbox2*, double)> bbox) {
+        this->operation = operation;
+        this->target = target;
+        this->bbox = bbox;
+    }
+
+    Task(Operation operation, std::function<Bbox2(Bbox2*, double)> bbox) {
+        this->operation = operation;
+        this->target = std::nullopt;
+        this->bbox = bbox;
+    }
+};
+
+struct TaskGroup {
+    std::vector<Task> sendTasks;
+    std::vector<Task> receiveTasks;
+    std::optional<Task> refineTask;
+};
+
 std::vector<TaskGroup> initializeTaskGroups() {
     TaskGroup phaseZeroTasks;
     phaseZeroTasks.sendTasks = {

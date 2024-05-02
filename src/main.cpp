@@ -1,5 +1,6 @@
 #include "main.hpp"
 #include "task.hpp"
+#include "mesh.hpp"
 
 int main(int argc, char** argv) {
     // initialize MPI
