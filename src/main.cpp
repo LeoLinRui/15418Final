@@ -1,4 +1,5 @@
 #include "main.hpp"
+#include "task.hpp"
 
 int main(int argc, char** argv) {
     // initialize MPI
@@ -9,7 +10,8 @@ int main(int argc, char** argv) {
     Timer timer;
     LocalMesh localMesh;
     std::vector<MeshUpdate> incomingUpdates;
-    std::vector<mpi::request> outgoingUpdates;
+    std::vector<MeshUpdate> outgoingUpdates;
+    std::vector<TaskGroup> taskGroups = initializeTaskGroups();
 
     // start timer for overall duration
     if (world.rank() == 0) timer.start("Total Time");
@@ -38,35 +40,57 @@ int main(int argc, char** argv) {
     for (auto& taskGroup : taskGroups) {
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
-            SerializableMesh buffer;
+            SerializableMesh* buffer = new SerializableMesh();
 
-            // TODO
-            mpi::request request = world.irecv(task., localMesh.neighbors[task.target], buffer);
-            
-            MeshUpdate update{request, task.bbox(localMesh.bbox), buffer};
-            incomingUpdates.push_back(update);
+            // check if that neighbor exists first (meshes on the edges has fewer neighbors)
+            std::optional<size_t> requestSource = localMesh.neighbors[task.target.value()];
+            if (requestSource.has_value()) {
+                mpi::request request = world.irecv(requestSource.value(), 0, buffer);
+                MeshUpdate update{request, &task.bbox(localMesh.bbox, localMesh.maxCircumradius), buffer};
+                incomingUpdates.push_back(update);
+            }
         }
 
         // do refinement, if any
         if (taskGroup.refineTask.has_value()) {
-            localMesh.refineZones(taskGroup.refineTask.bbox);
+            localMesh.refineBbox(&taskGroup.refineTask.value().bbox(localMesh.bbox, localMesh.maxCircumradius));
         }
 
         // post all async sends
-        for (auto& src : sendList[PhaseTopLeft]) {
-            SerializableMesh buffer;
-            Zone targetZone;
-            // TODO
-            mpi::request request = world.isend(localMesh.NeighborRight.value(), localMesh.neighbors[src], buffer);
-            
-            outgoingUpdates.push_back(request);
+        for (auto& task : taskGroup.sendTasks) {
+            SerializableMesh* buffer = new SerializableMesh();
+
+            // check if that neighbor exists first (meshes on the edges has fewer neighbors)
+            std::optional<size_t> requestDestination = localMesh.neighbors[task.target.value()];
+            if (requestDestination.has_value()) {
+                mpi::request request = world.isend(requestDestination.value(), 0, buffer);
+                MeshUpdate update{request, NULL, buffer};
+                outgoingUpdates.push_back(update);
+            }
         }
 
         // wait on all updates to complete
         while (!incomingUpdates.empty() || !outgoingUpdates.empty()) {
-            // check on outgoing sends
+            // Iterate through outgoing updates
+            for (auto it = outgoingUpdates.begin(); it != outgoingUpdates.end();) {
+                if (it->request.test()) {
+                    delete it->buffer;
+                    it = outgoingUpdates.erase(it);
+                } else {
+                    ++it;
+                }
+            }
 
-            // check on incoming receives
+            // Iterate through incoming updates
+            for (auto it = incomingUpdates.begin(); it != incomingUpdates.end();) {
+                if (it->request.test()) {
+                    localMesh.updateBbox(it->targetBox, it->buffer);
+                    delete it->buffer;
+                    it = incomingUpdates.erase(it);
+                } else {
+                    ++it;
+                }
+            }
         }
     }
 

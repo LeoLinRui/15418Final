@@ -77,14 +77,14 @@ struct LocalMesh {
     Then insert all the triangles in the provided serializedTriangulation in to mesh.
     A new Zone2 should be created, the corresponding field in the struct updated.
     */
-    void updateZone(Zone2* zone, SerializableMesh* incomingMesh) {
+    void updateBbox(Bbox2* bbox, SerializableMesh* incomingMesh) {
         
     }
 
     /*
     Refine the provided list of zones as one zone (not sequentially)
     */
-    void refineZones(std::vector<Zone2*> zones) {
+    void refineBbox(Bbox2* bbox) {
         
     }
 
@@ -222,8 +222,8 @@ enum class Neighbor {
 
 struct MeshUpdate {
     mpi::request request;
-    Zone targetZone;
-    SerializableMesh buffer;
+    Bbox2* targetBox;
+    SerializableMesh* buffer;
 };
 
 
@@ -239,15 +239,15 @@ struct Task {
 
     // takes a bbox that defines the local mesh's zone and the max circumradius
     // returns a box that specifies the area where the operation shall be performed
-    std::function<Bbox2*(Bbox2*, double)> bbox; 
+    std::function<Bbox2(Bbox2*, double)> bbox; 
 
-    Task(Operation operation, Neighbor target, std::function<Bbox2*(Bbox2*, double)> bbox) {
+    Task(Operation operation, Neighbor target, std::function<Bbox2(Bbox2*, double)> bbox) {
         this->operation = operation;
         this->target = target;
         this->bbox = bbox;
     }
 
-    Task(Operation operation, std::function<Bbox2*(Bbox2*, double)> bbox) {
+    Task(Operation operation, std::function<Bbox2(Bbox2*, double)> bbox) {
         this->operation = operation;
         this->target = std::nullopt;
         this->bbox = bbox;
