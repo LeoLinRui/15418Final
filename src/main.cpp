@@ -34,35 +34,40 @@ int main(int argc, char** argv) {
     if (world.rank() == 0) timer.start("Parallel Compute Region");
     localMesh.initZones();
 
-    // Phase 1 (top left)
-    // post all async receives
-    for (auto& src : recvList[PhaseTopLeft]) {
-        SerializableMesh buffer;
-        Zone targetZone;
-        // TODO
-        mpi::request request = world.irecv(localMesh.NeighborRight.value(), localMesh.neighbors[src], buffer);
-        
-        MeshUpdate update{request, targetZone, buffer};
-        incomingUpdates.push_back(update);
-    }
+    // loop through each taskGroup (phase)
+    for (auto& taskGroup : taskGroups) {
+        // post all async receives
+        for (auto& task : taskGroup.receiveTasks) {
+            SerializableMesh buffer;
 
-    localMesh.refineZones({"InnerTL", "InnerTop", "innerLeft", "MainTL"});
+            // TODO
+            mpi::request request = world.irecv(task., localMesh.neighbors[task.target], buffer);
+            
+            MeshUpdate update{request, task.bbox(localMesh.bbox), buffer};
+            incomingUpdates.push_back(update);
+        }
 
-    // post all async sends
-    for (auto& src : sendList[PhaseTopLeft]) {
-        SerializableMesh buffer;
-        Zone targetZone;
-        // TODO
-        mpi::request request = world.isend(localMesh.NeighborRight.value(), localMesh.neighbors[src], buffer);
-        
-        outgoingUpdates.push_back(request);
-    }
+        // do refinement, if any
+        if (taskGroup.refineTask.has_value()) {
+            localMesh.refineZones(taskGroup.refineTask.bbox);
+        }
 
-    // wait on all updates to complete
-    while (!incomingUpdates.empty() || !outgoingUpdates.empty()) {
-        // check on outgoing sends
+        // post all async sends
+        for (auto& src : sendList[PhaseTopLeft]) {
+            SerializableMesh buffer;
+            Zone targetZone;
+            // TODO
+            mpi::request request = world.isend(localMesh.NeighborRight.value(), localMesh.neighbors[src], buffer);
+            
+            outgoingUpdates.push_back(request);
+        }
 
-        // check on incoming receives
+        // wait on all updates to complete
+        while (!incomingUpdates.empty() || !outgoingUpdates.empty()) {
+            // check on outgoing sends
+
+            // check on incoming receives
+        }
     }
 
     return 0;

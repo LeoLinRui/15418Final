@@ -53,6 +53,7 @@ phaseZeroTasks.receiveTasks = {
         return bbox;
     })
 };
+phaseZeroTasks.refineTask = std::nullopt;
 
 TaskGroup phaseOneTasks;
 phaseOneTasks.sendTasks = {
@@ -210,4 +211,4 @@ phaseFourTasks.refineTask =
         return bbox;
     });
 
-std::vector<TaskGroup> taskGroups = {phaseOneTasks, phaseTwoTasks, phaseThreeTasks, phaseFourTasks};
+std::vector<TaskGroup> taskGroups = {phaseZeroTasks, phaseOneTasks, phaseTwoTasks, phaseThreeTasks, phaseFourTasks};

@@ -257,6 +257,6 @@ struct Task {
 struct TaskGroup {
     std::vector<Task> sendTasks;
     std::vector<Task> receiveTasks;
-    Task refineTask;
+    std::optional<Task> refineTask;
 };
 
