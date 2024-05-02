@@ -1,6 +1,4 @@
 #include "main.hpp"
-#include "task.hpp"
-#include "mesh.hpp"
 
 int main(int argc, char** argv) {
     // initialize MPI
@@ -41,31 +39,33 @@ int main(int argc, char** argv) {
     for (auto& taskGroup : taskGroups) {
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
-            SerializableMesh* buffer = new SerializableMesh();
-
             // check if that neighbor exists first (meshes on the edges has fewer neighbors)
             std::optional<size_t> requestSource = localMesh.neighbors[task.target.value()];
             if (requestSource.has_value()) {
+                SerializableMesh* buffer = new SerializableMesh();
                 mpi::request request = world.irecv(requestSource.value(), 0, buffer);
-                MeshUpdate update{request, &task.bbox(localMesh.bbox, localMesh.maxCircumradius), buffer};
+                MeshUpdate update{request, task.bbox(&localMesh.bbox, localMesh.maxCircumradius), buffer};
                 incomingUpdates.push_back(update);
             }
         }
 
         // do refinement, if any
         if (taskGroup.refineTask.has_value()) {
-            localMesh.refineBbox(&taskGroup.refineTask.value().bbox(localMesh.bbox, localMesh.maxCircumradius));
+            localMesh.refineBbox(taskGroup.refineTask.value().bbox(&localMesh.bbox, localMesh.maxCircumradius));
         }
 
         // post all async sends
         for (auto& task : taskGroup.sendTasks) {
-            SerializableMesh* buffer = new SerializableMesh();
-
             // check if that neighbor exists first (meshes on the edges has fewer neighbors)
             std::optional<size_t> requestDestination = localMesh.neighbors[task.target.value()];
             if (requestDestination.has_value()) {
+                // populate send buffer with points to send
+                Bbox2 sendBbox = task.bbox(&localMesh.bbox, localMesh.maxCircumradius);
+                SerializableMesh* buffer = new SerializableMesh();
+                buffer->insert(pointsInBbox(localMesh.mesh, sendBbox));
+
                 mpi::request request = world.isend(requestDestination.value(), 0, buffer);
-                MeshUpdate update{request, NULL, buffer};
+                MeshUpdate update{request, sendBbox, buffer};
                 outgoingUpdates.push_back(update);
             }
         }
