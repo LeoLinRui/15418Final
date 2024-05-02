@@ -1,7 +1,7 @@
 #include <main.hpp>
 
 std::vector<Triangle2*> trianglesInBbox(SerializableMesh& mesh, Bbox2& bbox) {
-    
+
 }
 
 struct LocalMesh {
@@ -58,7 +58,7 @@ struct GlobalMesh {
     GlobalMesh(RuntimeParameters params) {
 
     }
-    
+
     /*
     Sequentially refine the entire mesh.
     */
@@ -74,5 +74,21 @@ struct GlobalMesh {
     std::vector<LocalMesh> splitMesh(int nproc, bool initZones) {
 
     }
+
+    /*
+    Delete the current mesh and reconstruct one by combining a list of localMeshes.
+    Used to combine results as the end of computation.
+    */
+    void loadFromLocalMeshes(std::vector<LocalMesh> localMeshes) {
+
+    }
+
+    /*
+    Save mesh to .ply file (file name specified by runtimeParameters)
+    using writePointsPLY().
+    */
+   void saveToPLY() {
+
+   }
 };
 

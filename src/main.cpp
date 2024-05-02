@@ -10,6 +10,7 @@ int main(int argc, char** argv) {
     // important variables
     Timer timer;
     LocalMesh localMesh;
+    RuntimeParameters runtimeParameters(argc, argv);
     std::vector<MeshUpdate> incomingUpdates;
     std::vector<MeshUpdate> outgoingUpdates;
     std::vector<TaskGroup> taskGroups = initializeTaskGroups();
@@ -20,7 +21,7 @@ int main(int argc, char** argv) {
     // load and preprocess mesh sequentially, scatter localMeshes to workers
     if (world.rank() == 0) {
         // load mesh file and perform initial sequential refinement
-        GlobalMesh globalMesh = GlobalMesh(RuntimeParameters(argc, argv));
+        GlobalMesh globalMesh = GlobalMesh(runtimeParameters);
         globalMesh.refineMesh();
 
         // split globalMesh into localMeshes and send them to threads
@@ -35,7 +36,6 @@ int main(int argc, char** argv) {
 
     // Start of Computation
     if (world.rank() == 0) timer.start("Parallel Compute Region");
-    localMesh.initZones();
 
     // loop through each taskGroup (phase)
     for (auto& taskGroup : taskGroups) {
@@ -93,6 +93,23 @@ int main(int argc, char** argv) {
                 }
             }
         }
+    }
+
+    // End of parallel compute
+    if (world.rank() == 0) {
+        timer.stop("Parallel Compute Region");
+
+        std::vector<LocalMesh> localMeshes;
+        mpi::gather(world, localMesh, localMeshes, 0);
+
+        GlobalMesh outputMesh(runtimeParameters);
+        outputMesh.loadFromLocalMeshes(localMeshes);
+        outputMesh.saveToPLY();
+
+        timer.stop("Total Time");
+    } else {
+        // worker send local mesh
+        mpi::gather(world, localMesh, 0);
     }
 
     return 0;
