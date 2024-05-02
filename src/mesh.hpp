@@ -1,4 +1,4 @@
-#include <main.hpp>
+#include "main.hpp"
 
 std::vector<Triangle2*> trianglesInBbox(SerializableMesh& mesh, Bbox2& bbox) {
 
@@ -46,6 +46,20 @@ struct LocalMesh {
         archive & mesh;
         archive & neighbors;
         archive & maxCircumradius;
+
+        std::vector<double> bboxData;
+        if (Archive::is_saving::value) {
+            // Serialization
+            bboxData = {bbox->get_minX(), bbox->get_minY(), bbox->get_maxX(), bbox->get_maxY()};
+        }
+        archive & bboxData;
+        if (Archive::is_loading::value) {
+            // Deserialization
+            bbox->setMinX(bboxData[0]);
+            bbox->setMinY(bboxData[1]);
+            bbox->setMaxX(bboxData[2]);
+            bbox->setMaxY(bboxData[3]);
+        }
     }
 };
 

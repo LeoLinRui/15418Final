@@ -22,9 +22,9 @@ using namespace GEOM_FADE2D;
 namespace mpi = boost::mpi;
 
 struct RuntimeParameters {
-    std::string filePath;
+    std::string inFilePath;
+    std::string outFilePath;
     int numProcessors;
-    int numNodes;
     // MeshGenParams meshGenParams;
 
     RuntimeParameters(int argc, char** argv) {
