@@ -242,7 +242,7 @@ struct GlobalMesh
 {
     Fade_2D mesh;
 
-    // MeshGenParams initMeshGenParams; // params for initial sequential refinement
+    MeshGenParams initMeshGenParams; // params for initial sequential refinement
     std::string inFilePath, outFilePath;
     int numProcessors;
 
@@ -255,10 +255,34 @@ struct GlobalMesh
 
     /*
     Sequentially refine the entire mesh.
+    * seq delaunay refinement on page 1912
     */
     Fade_2D refineMesh()
     {
-        mesh.refine(); // TODO
+        std::vector<Point2 *> vectors = mesh.getVertexPointers();
+        Fade_2D Q;
+        for (Point2 p : vectors)
+        {
+            // should test some upper/lower bound from initMeshGenParams
+            if (true)
+            {
+                Point2 *point = Q.insert(p) // get pointer back to where in triangle
+            }
+        }
+        std::vector<Point2 *> points = Q.getVertexPointers();
+        while (points.size())
+        {
+            // t \in Q
+            Point2 t = points[0];
+            // i think it also splits so there wouldnt be segments encroached?
+            // this should be those within circumradius not incident persay
+            std::vector<Point2 *> cm_v = mesh.getIncidentTriangles();
+
+            for (Point2 p : cm_v)
+            { // remove b_m too dont know how to get this
+                mesh = mesh.remove(p)
+            }
+        }
     }
 
     /*
