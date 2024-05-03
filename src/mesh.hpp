@@ -92,9 +92,14 @@ struct GlobalMesh
     Fade_2D mesh;
 
     MeshGenParams initMeshGenParams; // params for initial sequential refinement
+    std::string inFilePath, outFilePath;
+    int numProcessors;
 
     GlobalMesh(RuntimeParameters params)
     {
+        inFilePath = params.inFilePath;
+        outFilePath = params.outFilePath;
+        numProcessors = params.numProcessors;
     }
 
     /*
@@ -134,5 +139,6 @@ struct GlobalMesh
     */
     void saveToPLY()
     {
+        writePointsPLY(inFilePath, mesh, outFilePath)
     }
 };
