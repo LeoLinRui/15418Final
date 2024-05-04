@@ -45,6 +45,7 @@ int main(int argc, char** argv) {
     }
 
     // Start of Computation
+    std::this_thread::sleep_for(std::chrono::seconds(3));
     if (world.rank() == 0) timer.start("Parallel Compute Region");
 
     // loop through each taskGroup (phase)
@@ -53,8 +54,10 @@ int main(int argc, char** argv) {
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
             // check if that neighbor exists first (meshes on the edges has fewer neighbors)
+            assert(task.target.has_value() && "Tasks on the receive list must contain target");
             std::optional<size_t> requestSource = localMesh.neighbors[task.target.value()];
             if (requestSource.has_value()) {
+                printf("BEEEEEEEP\n\n\n");
                 SerializableMesh buffer;
                 buffer.initMesh();
                 mpi::request request = world.irecv(requestSource.value(), 0, buffer);
@@ -62,8 +65,6 @@ int main(int argc, char** argv) {
                 incomingUpdates.push_back(update);
             }
         }
-
-        std::this_thread::sleep_for(std::chrono::seconds(3));
 
         std::cout << "Starting local refinement" << std::endl;
         // do refinement, if any

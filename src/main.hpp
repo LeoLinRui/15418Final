@@ -211,14 +211,20 @@ namespace boost {
         void serialize(Archive& ar, std::optional<long unsigned int>& opt, const unsigned int version) {
             bool is_present = opt.has_value();
             ar & is_present;
+            
             if (is_present) {
-                long unsigned int value = opt.value();
-                ar & value;
-                if (Archive::is_loading::value) {
+                if constexpr (!Archive::is_loading::value) {
+                    long unsigned int value = opt.value();
+                    ar & value;
+                } else {
+                    long unsigned int value;
+                    ar & value;
                     opt = value;
                 }
             } else {
-                opt.reset();
+                if constexpr (Archive::is_loading::value) {
+                    opt.reset();
+                }
             }
         }
 
