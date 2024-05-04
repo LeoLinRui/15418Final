@@ -43,9 +43,9 @@ struct RuntimeParameters {
             ("help,h", "produce help message")
             //("input,i", po::value<std::string>(&inFilePath)->required(), "input file path")
             //("output,o", po::value<std::string>(&outFilePath)->required(), "output file path")
-            ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(1000000), "number of randomly generated points")
+            ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(10000), "number of randomly generated points")
             ("processors,p", po::value<int>(&numProcessors)->default_value(1), "number of processors")
-            ("min-angle,a", po::value<double>(&minAngle)->default_value(0.0), "minimum angle")
+            ("min-angle,a", po::value<double>(&minAngle)->default_value(10.0), "minimum angle")
             ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(0.0), "minimum edge length")
             ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(1.0), "maximum edge length");
 
@@ -80,6 +80,7 @@ private:
 public:
     void start(const std::string& name) {
         timers[name] = {std::chrono::high_resolution_clock::now(), name};
+        std::cout << "Timer [" << name << "] started" << std::endl;
     }
 
     void stop(const std::string& name) {
@@ -158,8 +159,7 @@ public:
         archive & meshData;
         if (Archive::is_loading::value) {
             // Deserialization
-            std::istringstream stream;
-            stream >> meshData;
+            std::stringstream stream(meshData);
             std::vector<Zone2*> zoneVector;
             getMesh()->load(stream, zoneVector);
         }
@@ -271,8 +271,10 @@ struct LocalMesh {
     void updateBbox(const Bbox2& bbox, SerializableMesh incomingMesh) {  
         std::vector<Point2*> pointsToRemove = pointsInBbox(mesh.getMesh(), bbox);
         mesh.getMesh()->remove(pointsToRemove);
+        
         std::vector<Point2*> pointsToInsert;
         incomingMesh.getMesh()->getVertexPointers(pointsToInsert);
+        
         for (auto& point : pointsToInsert) {
             mesh.getMesh()->insert(*point);
         }
@@ -283,7 +285,13 @@ struct LocalMesh {
     */
     void refineBbox(const Bbox2& bbox) {
         std::vector<Triangle2*> validTriangles = trianglesInBbox(mesh.getMesh(), bbox);
+        std::cout << "Refining local mesh with " << mesh.getMesh()->numberOfTriangles() << 
+            " triangles" << std::endl;
+        
         Zone2* refineZone = mesh.getMesh()->createZone(validTriangles);
+        refineZone = refineZone->convertToBoundedZone();
+        assert(refineZone != NULL);
+        
         mesh.getMesh()->refine(refineZone, runtimeParameters.minAngle, 
             runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, true);
     }
@@ -313,7 +321,6 @@ struct LocalMesh {
     }
 };
 
-
 struct GlobalMesh {
     Fade_2D* mesh;
     RuntimeParameters runtimeParameters;
@@ -322,6 +329,7 @@ struct GlobalMesh {
 
     GlobalMesh(RuntimeParameters params) {
         mesh = new Fade_2D();
+        runtimeParameters = params;
     }
 
     // Delete the copy constructor and copy assignment operator
@@ -340,14 +348,18 @@ struct GlobalMesh {
     Sequentially refine the entire mesh.
     */
     void refineMesh() {
-        // create a global zone
+        // create a global zone for refinement
         std::vector<Triangle2*> allTriangles;
         mesh->getTrianglePointers(allTriangles);
-        Zone2* globalZone = mesh->createZone(allTriangles);
+        Zone2* refineZone = mesh->createZone(allTriangles);
+        refineZone = refineZone->convertToBoundedZone();
+        assert(refineZone != NULL);
 
         // refine the global zone
-        mesh->refine(globalZone, runtimeParameters.minAngle, runtimeParameters.minEdgeLength, 
-            runtimeParameters.maxEdgeLength, true);
+        std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
+        mesh->refine(refineZone, 5, 50, 500, true);
+        std::cout << "Global refinement complete. Mesh has " << mesh->numberOfPoints() <<
+            " points after refinement" << std::endl;
     }
 
     /*
@@ -356,8 +368,8 @@ struct GlobalMesh {
     Return a vector of localMeshes of length nproc.
     */
     std::vector<LocalMesh> splitMesh(const size_t nproc, const bool initZones) {
-        size_t numCols = nproc;
-        size_t numRows = nproc;
+        size_t numCols = std::sqrt(nproc);
+        size_t numRows = std::sqrt(nproc);
 
         // get global bbox
         Bbox2 bboxAll;
@@ -374,8 +386,8 @@ struct GlobalMesh {
         for (auto& triangle : allTriangles) {
             CircumcenterQuality quality;
             double circumRadius = (triangle->getCircumcenter(quality) - *triangle->getCorner(0)).length();
-            if (quality == CCQ_OUT_OF_BOUNDS || quality == CCQ_INEXACT) {
-                throw std::runtime_error("Circumradius calculation did not return an exact result in splitMesh.\n");
+            if (quality == CCQ_OUT_OF_BOUNDS) {
+                throw std::runtime_error("Circumradius calculation returned out-of-bounds in splitMesh.\n");
             }
             maxCircumradius = std::min(maxCircumradius, circumRadius);
         }
@@ -429,6 +441,7 @@ struct GlobalMesh {
                 index++;
             }
         }
+        std::cout << "Splitted global mesh into " << index << " local meshes" << std::endl;
         return localMeshes;
     }
 
@@ -472,10 +485,14 @@ struct GlobalMesh {
     /*
     Load randomly generated points
     */
-    void loadFromRandom(size_t n) {
+    void loadFromRandom() {
         std::vector<Point2> generatedPoints;
-        generateRandomPoints(n, 0.0, 1000.0, generatedPoints);
+        generateRandomPoints(runtimeParameters.numRandomPoints, 0.0, 1000.0, generatedPoints);
+        std::cout << "Generated " << generatedPoints.size() << " random points" << std::endl;
+        
         mesh->insert(generatedPoints);
+        std::cout << "Mesh has " << mesh->numberOfPoints() << 
+            " vertices after insertion of random points" << std::endl;
     }
 };
 
