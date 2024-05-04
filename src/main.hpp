@@ -466,6 +466,15 @@ struct GlobalMesh {
         mesh->getVertexPointers(pointsToSave);
         //writePointsPLY(runtimeParameters.outFilePath.c_str(), pointsToSave, true);
     }
+
+    /*
+    Load randomly generated points
+    */
+    void loadFromRandom(size_t n) {
+        std::vector<Point2> generatedPoints;
+        generateRandomPoints(n, 0.0, 1000.0, generatedPoints);
+        mesh->insert(generatedPoints);
+    }
 };
 
 // TASKS
