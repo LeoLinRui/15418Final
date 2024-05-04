@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
             // check if that neighbor exists first (meshes on the edges has fewer neighbors)
             std::optional<size_t> requestSource = localMesh.neighbors[task.target.value()];
             if (requestSource.has_value()) {
-                SerializableMesh* buffer = new SerializableMesh();
+                SerializableMesh buffer;
                 mpi::request request = world.irecv(requestSource.value(), 0, buffer);
                 MeshUpdate update{request, task.bbox(&localMesh.bbox, localMesh.maxCircumradius), buffer};
                 incomingUpdates.push_back(update);
@@ -61,8 +61,11 @@ int main(int argc, char** argv) {
             if (requestDestination.has_value()) {
                 // populate send buffer with points to send
                 Bbox2 sendBbox = task.bbox(&localMesh.bbox, localMesh.maxCircumradius);
-                SerializableMesh* buffer = new SerializableMesh();
-                buffer->insert(pointsInBbox(localMesh.mesh, sendBbox));
+                SerializableMesh buffer;
+                std::vector<Point2*> pointsToSend = pointsInBbox(localMesh.mesh.getMesh(), sendBbox);
+                for (auto& point : pointsToSend) {
+                    buffer.getMesh()->insert(*point);
+                }
 
                 mpi::request request = world.isend(requestDestination.value(), 0, buffer);
                 MeshUpdate update{request, sendBbox, buffer};
@@ -75,7 +78,6 @@ int main(int argc, char** argv) {
             // Iterate through outgoing updates
             for (auto it = outgoingUpdates.begin(); it != outgoingUpdates.end();) {
                 if (it->request.test()) {
-                    delete it->buffer;
                     it = outgoingUpdates.erase(it);
                 } else {
                     ++it;
@@ -86,7 +88,6 @@ int main(int argc, char** argv) {
             for (auto it = incomingUpdates.begin(); it != incomingUpdates.end();) {
                 if (it->request.test()) {
                     localMesh.updateBbox(it->targetBox, it->buffer);
-                    delete it->buffer;
                     it = incomingUpdates.erase(it);
                 } else {
                     ++it;
