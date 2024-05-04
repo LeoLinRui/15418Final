@@ -330,12 +330,15 @@ struct LocalMesh {
 struct GlobalMesh {
     Fade_2D* mesh;
     RuntimeParameters runtimeParameters;
+    Visualizer2* visualizer;
+    Color color = Color(255.0, 0.0, 0.0, 0.5);
 
     // MeshGenParams initMeshGenParams; // params for initial sequential refinement
 
     GlobalMesh(RuntimeParameters params) {
         mesh = new Fade_2D();
         runtimeParameters = params;
+        visualizer = new Visualizer2("visualization.ps");
     }
 
     // Delete the copy constructor and copy assignment operator
@@ -348,6 +351,7 @@ struct GlobalMesh {
 
     ~GlobalMesh() {
         delete mesh;
+        delete visualizer;
     }
 
     /*
@@ -499,6 +503,22 @@ struct GlobalMesh {
         mesh->insert(generatedPoints);
         std::cout << "Mesh has " << mesh->numberOfPoints() << 
             " vertices after insertion of random points" << std::endl;
+    }
+
+    void visualizePoints() {
+        std::vector<Point2*> points;
+        mesh->getVertexPointers(points);
+        visualizer->addObject(points, color);
+    }
+
+    void visualizeTriangles() {
+        std::vector<Triangle2*> triangles;
+        mesh->getTrianglePointers(triangles);
+        visualizer->addObject(triangles, color);
+    }
+
+    void saveVisualization() {
+        visualizer->writeFile();
     }
 };
 

@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
         timer.stop("Loading Input");
 
         timer.start("Global Sequential Refine");
-        globalMesh.refineMesh();
+        // globalMesh.refineMesh();
         timer.stop("Global Sequential Refine");
 
         // split globalMesh into localMeshes and send them to threads
@@ -38,7 +38,16 @@ int main(int argc, char** argv) {
         mpi::scatter(world, localMeshes, localMesh, 0);
         timer.stop("Scatter Mesh");
 
-        // TODO free local meshes
+        // sleep fpr 3 s
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+
+        // free local meshes
+        int i = 0;
+        for (auto& mesh : localMeshes) {
+            // if (i != 0) mesh.mesh.freeMesh();
+            i++;
+        }
+        std::cout << "Local meshes freed on main thread" << std::endl;
     } else {
         // receive local mesh
         mpi::scatter(world, localMesh, 0);
@@ -64,18 +73,22 @@ int main(int argc, char** argv) {
             }
         }
 
-        std::cout << "[Thread " << world.rank() << "] Starting local refinement" << std::endl;
         // do refinement, if any
         if (taskGroup.refineTask.has_value()) {
+            std::cout << "[Thread " << world.rank() << "] Starting local refinement" << std::endl;
             localMesh.refineBbox(taskGroup.refineTask.value().bbox(&localMesh.bbox, localMesh.maxCircumradius));
+            std::cout << "[Thread " << world.rank() << "] Local refinement complete" << std::endl;
         }
-        std::cout << "[Thread " << world.rank() << "] Local refinement complete" << std::endl;
+
+        // sleep fpr 3 s
+        std::this_thread::sleep_for(std::chrono::seconds(3));
 
         // post all async sends
         for (auto& task : taskGroup.sendTasks) {
             // check if that neighbor exists first (meshes on the edges has fewer neighbors)
             std::optional<size_t> requestDestination = localMesh.neighbors[task.target.value()];
             if (requestDestination.has_value()) {
+                printf("[Thread %d] Posting send request to %d\n", world.rank(), requestDestination.value());
                 // populate send buffer with points to send
                 Bbox2 sendBbox = task.bbox(&localMesh.bbox, localMesh.maxCircumradius);
                 SerializableMesh buffer;
@@ -85,18 +98,21 @@ int main(int argc, char** argv) {
                     buffer.getMesh()->insert(*point);
                 }
 
+                printf("[Thread %d] Sending %d points to %d\n", world.rank(), buffer.getMesh()->numberOfPoints(), requestDestination.value());
+
                 mpi::request request = world.isend(requestDestination.value(), 0, buffer);
                 MeshUpdate update{request, sendBbox, buffer};
                 outgoingUpdates.push_back(update);
             }
         }
+        std::cout << "[Thread " << world.rank() << "] has posted all send requests" << std::endl;
 
         // wait on all updates to complete
-        // TODO FREE MESH BUFFERS
         while (!incomingUpdates.empty() || !outgoingUpdates.empty()) {
             // Iterate through outgoing updates
             for (auto it = outgoingUpdates.begin(); it != outgoingUpdates.end();) {
                 if (it->request.test()) {
+                    //it->buffer.freeMesh();
                     it = outgoingUpdates.erase(it);
                 } else {
                     ++it;
@@ -107,6 +123,7 @@ int main(int argc, char** argv) {
             for (auto it = incomingUpdates.begin(); it != incomingUpdates.end();) {
                 if (it->request.test()) {
                     localMesh.updateBbox(it->targetBox, it->buffer);
+                    //it->buffer.freeMesh();
                     it = incomingUpdates.erase(it);
                 } else {
                     ++it;
