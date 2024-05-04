@@ -448,12 +448,24 @@ struct GlobalMesh {
     }
 
     /*
+    Load mesh from .ply file (file name specified by runtimeParameters)
+    using readPointsPLY().
+    */
+    void loadFromPLY() {
+        std::vector<Point2> loadedPoints;
+        //readPointsPLY(runtimeParameters.inFilePath.c_str(), true, loadedPoints, NULL);
+        mesh->insert(loadedPoints);
+    }
+    
+    /*
     Save mesh to .ply file (file name specified by runtimeParameters)
     using writePointsPLY().
     */
-   void saveToPLY() {
-
-   }
+    void saveToPLY() {
+        std::vector<Point2*> pointsToSave;
+        mesh->getVertexPointers(pointsToSave);
+        //writePointsPLY(runtimeParameters.outFilePath.c_str(), pointsToSave, true);
+    }
 };
 
 // TASKS
