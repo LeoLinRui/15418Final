@@ -232,7 +232,7 @@ std::vector<Point2*> pointsInBbox(SmartPtr mesh, const Bbox2& bbox) {
     std::vector<Point2*> allPoints;
     mesh->getVertexPointers(allPoints);
     for (auto& point : allPoints) {
-        if (bbox.isInBox(*point) && !mesh->isConstraint(point)) {
+        if (bbox.isInBox(*point)) {
             validPoints.push_back(point);
         }
     }
@@ -265,7 +265,7 @@ struct LocalMesh {
 
     // Parameters
     RuntimeParameters runtimeParameters;
-    int maxCircumradius; // max circumradius in the entire mesh
+    double maxCircumradius; // max circumradius in the entire mesh
 
     /*
     Delete all the vertices in the provided Bbox.
@@ -280,7 +280,8 @@ struct LocalMesh {
         incomingMesh.getMesh()->getVertexPointers(pointsToInsert);
         
         for (auto& point : pointsToInsert) {
-            mesh.getMesh()->insert(*point);
+            //if (bbox.isInBox(*point))
+                mesh.getMesh()->insert(*point);
         }
     }
 
@@ -295,6 +296,12 @@ struct LocalMesh {
         Zone2* refineZone = mesh.getMesh()->createZone(validTriangles);
         refineZone = refineZone->convertToBoundedZone();
         assert(refineZone != NULL);
+
+        if (mesh.getMesh()->numberOfTriangles() == 0) {
+            std::cout << "No triangles to refine in local mesh" << std::endl;
+            exit(0);
+            return;
+        }
         
         mesh.getMesh()->refine(refineZone, runtimeParameters.minAngle, 
             runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, true);
@@ -378,10 +385,7 @@ struct GlobalMesh {
         size_t numRows = std::sqrt(nproc);
 
         // get global bbox
-        Bbox2 bboxAll;
-        std::vector<Point2*> allPoints;
-        mesh->getVertexPointers(allPoints);
-        bboxAll.add(allPoints.begin(), allPoints.end());
+        Bbox2 bboxAll = mesh->computeBoundingBox();
         double boxWidth = (bboxAll.get_maxX() - bboxAll.get_minX()) / numCols;
         double boxHeight = (bboxAll.get_maxY() - bboxAll.get_minY()) / numRows;
 
@@ -414,13 +418,14 @@ struct GlobalMesh {
                 std::vector<Point2*> pointsToAdd = pointsInBbox(mesh, localMesh.bbox);
                 for (auto& point : pointsToAdd) {
                     localMesh.mesh.getMesh()->insert(*point);
+                    assert(localMesh.bbox.isInBox(*point));
                 }
 
                 // assign neighbors
-                localMesh.neighbors[Neighbor::Top] = row > 0 ?
-                    std::make_optional(index - numCols) : std::nullopt;
-                localMesh.neighbors[Neighbor::Bottom] = row < numRows - 1 ? 
+                localMesh.neighbors[Neighbor::Top] = row < numRows - 1 ?
                     std::make_optional(index + numCols) : std::nullopt;
+                localMesh.neighbors[Neighbor::Bottom] = row > 0 ? 
+                    std::make_optional(index - numCols) : std::nullopt;
                 localMesh.neighbors[Neighbor::Left] = col > 0 ? 
                     std::make_optional(index - 1) : std::nullopt;
                 localMesh.neighbors[Neighbor::Right] = col < numCols - 1 ? 
@@ -460,7 +465,9 @@ struct GlobalMesh {
         for (auto& localMesh : localMeshes) {
             std::vector<Point2*> points;
             localMesh.mesh.getMesh()->getVertexPointers(points);
-            for (auto& point : points) {
+            // exclude the boarder overlap points
+            std::vector<Point2*> pointsToAdd = pointsInBbox(localMesh.mesh.getMesh(), localMesh.bbox);
+            for (auto& point : pointsToAdd) {
                 this->mesh->insert(*point);
             }
         }
@@ -504,6 +511,9 @@ struct GlobalMesh {
         mesh->getVertexPointers(points);
         Color color = Color(255, 0, 0, 0.5);
         visualizer->addObject(points, color);
+
+        Color highlightColor = Color(0, 255, 0, 5);
+        visualizer->addObject(Point2(0, 0), highlightColor);
     }
 
     void visualizeTriangles() {
@@ -567,17 +577,17 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Send, Neighbor::BR, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_maxX() - 2 * r);
-            bbox.setMinY(b->get_maxY() - 2 * r);
+            bbox.setMinY(b->get_minY());
             bbox.setMaxX(b->get_maxX());
-            bbox.setMaxY(b->get_maxY());
+            bbox.setMaxY(b->get_minY() + 2 * r);
             return bbox;
         }),
         Task(Operation::Send, Neighbor::Bottom, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX());
-            bbox.setMinY(b->get_maxY() - 2 * r);
+            bbox.setMinY(b->get_minY());
             bbox.setMaxX(b->get_maxX() - 2 * r);
-            bbox.setMaxY(b->get_maxY());
+            bbox.setMaxY(b->get_minY() + 2 * r);
             return bbox;
         })
     };
@@ -585,25 +595,25 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Receive, Neighbor::Left, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX() - 2 * r);
-            bbox.setMinY(b->get_minY());
+            bbox.setMinY(b->get_minY() + 2 * r);
             bbox.setMaxX(b->get_minX());
-            bbox.setMaxY(b->get_maxY() - 2 * r);
+            bbox.setMaxY(b->get_maxY());
             return bbox;
         }),
         Task(Operation::Receive, Neighbor::TL, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_maxX() - 2 * r);
-            bbox.setMinY(b->get_minY() - 2 * r);
+            bbox.setMinY(b->get_maxY());
             bbox.setMaxX(b->get_minX());
-            bbox.setMaxY(b->get_minY());
+            bbox.setMaxY(b->get_maxY() + 2 * r);
             return bbox;
         }),
         Task(Operation::Receive, Neighbor::Top, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX());
-            bbox.setMinY(b->get_minY() - 2 * r);
+            bbox.setMinY(b->get_maxY());
             bbox.setMaxX(b->get_maxX() - 2 * r);
-            bbox.setMaxY(b->get_minY());
+            bbox.setMaxY(b->get_maxY() + 2 * r);
             return bbox;
         })
     };
@@ -614,9 +624,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Send, Neighbor::Left, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX() - 2 * r);
-            bbox.setMinY(b->get_minY() - 2 * r);
+            bbox.setMinY(b->get_minY() + 2 * r);
             bbox.setMaxX(b->get_minX() + 2 * r);
-            bbox.setMaxY((b->get_minY() + b->get_maxY()) / 2 + 2 * r);
+            bbox.setMaxY(b->get_maxY() + 2 * r);
             return bbox;
         })
     };
@@ -624,9 +634,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Receive, Neighbor::Right, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_maxX() - 2 * r);
-            bbox.setMinY(b->get_minY() - 2 * r);
+            bbox.setMinY(b->get_minY() + 2 * r);
             bbox.setMaxX(b->get_maxX() + 2 * r);
-            bbox.setMaxY((b->get_minY() + b->get_maxY()) / 2 + 2 * r);
+            bbox.setMaxY(b->get_maxY() + 2 * r);
             return bbox;
         })
     };
@@ -634,9 +644,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Refine, [](Bbox2* b, double r) { 
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX() - r);
-            bbox.setMinY(b->get_minY() - r);
+            bbox.setMinY((b->get_minY() + b->get_maxY()) / 2 - r);
             bbox.setMaxX((b->get_minX() + b->get_maxX()) / 2 + r);
-            bbox.setMaxY((b->get_minY() + b->get_maxY()) / 2 + r);
+            bbox.setMaxY(b->get_maxY() + r);
             return bbox;
         });
 
@@ -645,9 +655,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Send, Neighbor::Top, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX() + 2 * r);
-            bbox.setMinY(b->get_minY() - 2 * r);
+            bbox.setMinY(b->get_maxY() - 2 * r);
             bbox.setMaxX(b->get_maxX() + 2 * r);
-            bbox.setMaxY(b->get_minY() + 2 * r);
+            bbox.setMaxY(b->get_maxY() + 2 * r);
             return bbox;
         })
     };
@@ -655,9 +665,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Receive, Neighbor::Bottom, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX() + 2 * r);
-            bbox.setMinY(b->get_maxY() - 2 * r);
+            bbox.setMinY(b->get_minY() - 2 * r);
             bbox.setMaxX(b->get_maxX() + 2 * r);
-            bbox.setMaxY(b->get_maxY() + 2 * r);
+            bbox.setMaxY(b->get_minY() + 2 * r);
             return bbox;
         })
     };
@@ -665,9 +675,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Refine, [](Bbox2* b, double r) { 
             Bbox2 bbox = Bbox2();
             bbox.setMinX((b->get_minX() + b->get_maxX()) / 2);
-            bbox.setMinY(b->get_minY() - r);
+            bbox.setMinY((b->get_minY() + b->get_maxY()) / 2 - r);
             bbox.setMaxX(b->get_maxX());
-            bbox.setMaxY((b->get_minY() + b->get_maxY()) / 2 + r);
+            bbox.setMaxY(b->get_maxY() + r);
             return bbox;
         });
 
@@ -676,9 +686,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Send, Neighbor::Right, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_maxX() - 2 * r);
-            bbox.setMinY(b->get_minY() + 2 * r);
+            bbox.setMinY(b->get_minY() - 2 * r);
             bbox.setMaxX(b->get_maxX() + 2 * r);
-            bbox.setMaxY(b->get_maxY() + 2 * r);
+            bbox.setMaxY(b->get_maxY() - 2 * r);
             return bbox;
         })
     };
@@ -686,9 +696,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Receive, Neighbor::Left, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX() - 2 * r);
-            bbox.setMinY(b->get_minY() + 2 * r);
+            bbox.setMinY(b->get_minY() - 2 * r);
             bbox.setMaxX(b->get_minX() + 2 * r);
-            bbox.setMaxY(b->get_maxY() + 2 * r);
+            bbox.setMaxY(b->get_maxY() - 2 * r);
             return bbox;
         })
     };
@@ -696,9 +706,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Refine, [](Bbox2* b, double r) { 
             Bbox2 bbox = Bbox2();
             bbox.setMinX((b->get_minX() + b->get_maxX()) / 2 - r);
-            bbox.setMinY((b->get_minY() + b->get_maxY()) / 2);
+            bbox.setMinY(b->get_minY());
             bbox.setMaxX(b->get_maxX() + r);
-            bbox.setMaxY(b->get_maxY());
+            bbox.setMaxY((b->get_minY() + b->get_maxY()) / 2);
             return bbox;
         });
 
@@ -707,25 +717,25 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Send, Neighbor::Left, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX() - 2 * r);
-            bbox.setMinY(b->get_minY() + 2 * r);
+            bbox.setMinY(b->get_minY());
             bbox.setMaxX(b->get_minX());
-            bbox.setMaxY(b->get_maxY());
+            bbox.setMaxY(b->get_maxY() - 2 * r);
             return bbox;
         }),
         Task(Operation::Send, Neighbor::BL, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX() - 2 * r);
-            bbox.setMinY(b->get_maxY());
+            bbox.setMinY(b->get_minY() - 2 * r);
             bbox.setMaxX(b->get_minX());
-            bbox.setMaxY(b->get_maxY() + 2 * r);
+            bbox.setMaxY(b->get_minY());
             return bbox;
         }),
         Task(Operation::Send, Neighbor::Bottom, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX());
-            bbox.setMinY(b->get_maxY());
+            bbox.setMinY(b->get_minY() - 2 * r);
             bbox.setMaxX(b->get_maxX() - 2 * r);
-            bbox.setMaxY(b->get_maxY() + 2 * r);
+            bbox.setMaxY(b->get_minY());
             return bbox;
         })
     };
@@ -733,25 +743,25 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Receive, Neighbor::Right, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_maxX() - 2 * r);
-            bbox.setMinY(b->get_minY() + 2 * r);
+            bbox.setMinY(b->get_minY());
             bbox.setMaxX(b->get_maxX());
-            bbox.setMaxY(b->get_maxY());
+            bbox.setMaxY(b->get_maxY() - 2 * r);
             return bbox;
         }),
         Task(Operation::Receive, Neighbor::TR, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_maxX() - 2 * r);
-            bbox.setMinY(b->get_minY());
+            bbox.setMinY(b->get_maxY() - 2 * r);
             bbox.setMaxX(b->get_maxX());
-            bbox.setMaxY(b->get_minY() + 2 * r);
+            bbox.setMaxY(b->get_maxY());
             return bbox;
         }),
         Task(Operation::Receive, Neighbor::Top, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX());
-            bbox.setMinY(b->get_minY());
+            bbox.setMinY(b->get_maxY() - 2 * r);
             bbox.setMaxX(b->get_maxX() - 2 * r);
-            bbox.setMaxY(b->get_minY() + 2 * r);
+            bbox.setMaxY(b->get_maxY());
             return bbox;
         })
     };
@@ -759,9 +769,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Refine, [](Bbox2* b, double r) { 
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_minX());
-            bbox.setMinY((b->get_minY() + b->get_maxY()) / 2);
+            bbox.setMinY(b->get_minY());
             bbox.setMaxX((b->get_minX() + b->get_maxX()) / 2);
-            bbox.setMaxY(b->get_maxY());
+            bbox.setMaxY((b->get_minY() + b->get_maxY()) / 2);
             return bbox;
         });
 

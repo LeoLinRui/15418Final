@@ -34,9 +34,7 @@ int main(int argc, char** argv) {
         globalMesh.refineMesh();
         timer.stop("Global Sequential Refine");
 
-        // visualize
-        
-        //globalMesh.mesh->writeWebScene("input");
+        // visualize     
 
         // split globalMesh into localMeshes and send them to threads
         std::vector<LocalMesh> localMeshes = globalMesh.splitMesh(world.size(), false);
@@ -46,14 +44,6 @@ int main(int argc, char** argv) {
         timer.start("Scatter Mesh");
         mpi::scatter(world, localMeshes, localMesh, 0);
         timer.stop("Scatter Mesh");
-
-        // free local meshes
-        int i = 0;
-        for (auto& mesh : localMeshes) {
-            // if (i != 0) mesh.mesh.freeMesh();
-            i++;
-        }
-        std::cout << "Local meshes freed on main thread" << std::endl;
     } else {
         // receive local mesh
         mpi::scatter(world, localMesh, 0);
@@ -63,9 +53,21 @@ int main(int argc, char** argv) {
     if (world.rank() == 0) timer.start("Parallel Compute Region");
 
     // loop through each taskGroup (phase)
+    int taskGroupIndex = 0;
     for (auto& taskGroup : taskGroups) {
+        if (taskGroupIndex == 5) {
+            continue;
+        }
+        std::cout << "[Thread " << world.rank() << "] Starting task group " << taskGroupIndex << std::endl;
         world.barrier();
-        std::cout << "[Thread " << world.rank() << "] Starting task group" << std::endl;
+
+        // print out neighbors of this thread with thread number
+        for (int i = 0; i < localMesh.neighbors.size(); i++) {
+            if (localMesh.neighbors[static_cast<Neighbor>(i)].has_value()) {
+                std::cout << "[Thread " << world.rank() << "] Neighbor " << i << " is thread " << localMesh.neighbors[static_cast<Neighbor>(i)].value() << std::endl;
+            }
+        }
+
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
             // check if that neighbor exists first (meshes on the edges has fewer neighbors)
@@ -82,7 +84,7 @@ int main(int argc, char** argv) {
         // do refinement, if any
         if (taskGroup.refineTask.has_value()) {
             std::cout << "[Thread " << world.rank() << "] Starting local refinement" << std::endl;
-            // localMesh.refineBbox(taskGroup.refineTask.value().bbox(&localMesh.bbox, localMesh.maxCircumradius));
+            //localMesh.refineBbox(taskGroup.refineTask.value().bbox(&localMesh.bbox, localMesh.maxCircumradius));
             std::cout << "[Thread " << world.rank() << "] Local refinement complete" << std::endl;
         }
 
@@ -130,6 +132,7 @@ int main(int argc, char** argv) {
                 }
             }
         }
+        taskGroupIndex++;
     }
     world.barrier();
 
@@ -139,6 +142,11 @@ int main(int argc, char** argv) {
 
         std::vector<LocalMesh> localMeshes;
         mpi::gather(world, localMesh, localMeshes, 0);
+
+        // print out the bbox of each local mesh
+        for (int i = 0; i < localMeshes.size(); i++) {
+            std::cout << "Local Mesh " << i << " bbox: " << localMeshes[i].bbox << std::endl;
+        }
 
         globalMesh.loadFromLocalMeshes(localMeshes);
         globalMesh.visualizePoints();
