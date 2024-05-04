@@ -58,8 +58,7 @@ struct RuntimeParameters {
                 return;
             }
 
-            po::notify(vm);  // throws on error, so do after help in case
-                             // there are any problems
+            po::notify(vm);
         } catch (po::error& e) {
             std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
             std::cerr << desc << std::endl;
@@ -115,23 +114,14 @@ public:
 
 struct SerializableMesh {
 private:
-    bool initialized;
-    Fade_2D* mesh;
+    std::shared_ptr<Fade_2D> mesh;
 
 public:
-    void initMesh() {
-        mesh = new Fade_2D();
-        initialized = true;
-    }
+    SerializableMesh() : mesh(std::make_shared<Fade_2D>()) {}
 
-    void freeMesh() {
-        delete mesh;
-        initialized = false;
-    }
-
-    Fade_2D* getMesh() {
-        if (!initialized) {
-            throw std::runtime_error("SerializedMesh accessed without initialization.\n");
+    std::shared_ptr<Fade_2D> getMesh() const {
+        if (!mesh) {
+            throw std::runtime_error("Mesh not initialized.");
         }
         return mesh;
     }
@@ -159,6 +149,11 @@ public:
         archive & meshData;
         if (Archive::is_loading::value) {
             // Deserialization
+            if (getMesh()->numberOfTriangles() != 0 || getMesh()->numberOfPoints() != 0) {
+                std::cout << "Mesh has " << getMesh()->numberOfPoints() << " points and " 
+                    << getMesh()->numberOfTriangles() << " triangles\n";
+                throw std::runtime_error("Deserializing into a non-empty mesh");
+            }
             std::stringstream stream(meshData);
             std::vector<Zone2*> zoneVector;
             getMesh()->load(stream, zoneVector);
@@ -169,7 +164,7 @@ public:
 struct MeshUpdate {
     mpi::request request;
     Bbox2 targetBox;
-    SerializableMesh buffer;
+    std::shared_ptr<SerializableMesh> buffer;
 };
 
 
@@ -231,7 +226,8 @@ namespace boost {
     } // namespace serialization
 } // namespace boost
 
-std::vector<Point2*> pointsInBbox(Fade_2D* mesh, const Bbox2& bbox) {
+template<typename SmartPtr>
+std::vector<Point2*> pointsInBbox(SmartPtr mesh, const Bbox2& bbox) {
     std::vector<Point2*> validPoints;
     std::vector<Point2*> allPoints;
     mesh->getVertexPointers(allPoints);
@@ -243,7 +239,8 @@ std::vector<Point2*> pointsInBbox(Fade_2D* mesh, const Bbox2& bbox) {
     return validPoints;
 }
 
-std::vector<Triangle2*> trianglesInBbox(Fade_2D* mesh, const Bbox2& bbox) {
+template<typename SmartPtr>
+std::vector<Triangle2*> trianglesInBbox(SmartPtr mesh, const Bbox2& bbox) {
     std::vector<Triangle2*> validTriangles;
     std::vector<Triangle2*> allTriangles;
     mesh->getTrianglePointers(allTriangles);
@@ -274,9 +271,10 @@ struct LocalMesh {
     Delete all the vertices in the provided Bbox.
     Then insert all the vertices in the provided serializedTriangulation in to mesh.
     */
-    void updateBbox(const Bbox2& bbox, SerializableMesh incomingMesh) {  
+    void updateBbox(const Bbox2& bbox, SerializableMesh& incomingMesh) {  
         std::vector<Point2*> pointsToRemove = pointsInBbox(mesh.getMesh(), bbox);
         mesh.getMesh()->remove(pointsToRemove);
+        std::cout << "Removed " << pointsToRemove.size() << " points from local mesh" << std::endl;
         
         std::vector<Point2*> pointsToInsert;
         incomingMesh.getMesh()->getVertexPointers(pointsToInsert);
@@ -328,17 +326,16 @@ struct LocalMesh {
 };
 
 struct GlobalMesh {
-    Fade_2D* mesh;
+    std::shared_ptr<Fade_2D> mesh;
     RuntimeParameters runtimeParameters;
-    Visualizer2* visualizer;
-    Color color = Color(255.0, 0.0, 0.0, 0.5);
+    std::unique_ptr<Visualizer2> visualizer;
 
     // MeshGenParams initMeshGenParams; // params for initial sequential refinement
 
     GlobalMesh(RuntimeParameters params) {
-        mesh = new Fade_2D();
+        mesh = std::make_unique<Fade_2D>();
         runtimeParameters = params;
-        visualizer = new Visualizer2("visualization.ps");
+        visualizer = std::make_unique<Visualizer2>("visualization.ps");
     }
 
     // Delete the copy constructor and copy assignment operator
@@ -348,11 +345,6 @@ struct GlobalMesh {
     // Delete the move constructor and move assignment operator
     GlobalMesh(GlobalMesh&&) = delete;
     GlobalMesh& operator=(GlobalMesh&&) = delete;
-
-    ~GlobalMesh() {
-        delete mesh;
-        delete visualizer;
-    }
 
     /*
     Sequentially refine the entire mesh.
@@ -367,7 +359,7 @@ struct GlobalMesh {
 
         // refine the global zone
         std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
-        mesh->refine(refineZone, 5, 50, 500, true);
+        mesh->refine(refineZone, 20, 1, 500, true);
         std::cout << "Global refinement complete. Mesh has " << mesh->numberOfPoints() <<
             " points after refinement" << std::endl;
     }
@@ -399,7 +391,7 @@ struct GlobalMesh {
             if (quality == CCQ_OUT_OF_BOUNDS) {
                 throw std::runtime_error("Circumradius calculation returned out-of-bounds in splitMesh.\n");
             }
-            maxCircumradius = std::min(maxCircumradius, circumRadius);
+            maxCircumradius = std::max(maxCircumradius, circumRadius);
         }
 
         std::vector<LocalMesh> localMeshes;
@@ -407,7 +399,6 @@ struct GlobalMesh {
         for (size_t row = 0; row < numRows; row++) {
             for (size_t col = 0; col < numCols; col++) {
                 LocalMesh localMesh;
-                localMesh.mesh.initMesh();
 
                 // initialize bbox
                 localMesh.bbox.setMinX(bboxAll.get_minX() + col * boxWidth);
@@ -460,8 +451,7 @@ struct GlobalMesh {
     Used to combine results as the end of computation.
     */
     void loadFromLocalMeshes(std::vector<LocalMesh>& localMeshes) {
-        delete mesh;
-        mesh = new Fade_2D();
+        mesh.reset(new Fade_2D());
 
         for (auto& localMesh : localMeshes) {
             std::vector<Point2*> points;
@@ -508,12 +498,14 @@ struct GlobalMesh {
     void visualizePoints() {
         std::vector<Point2*> points;
         mesh->getVertexPointers(points);
+        Color color = Color(255, 0, 0, 0.5);
         visualizer->addObject(points, color);
     }
 
     void visualizeTriangles() {
         std::vector<Triangle2*> triangles;
         mesh->getTrianglePointers(triangles);
+        Color color = Color(0, 0, 255, 0.2);
         visualizer->addObject(triangles, color);
     }
 
