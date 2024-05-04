@@ -10,6 +10,7 @@ int main(int argc, char** argv) {
     Timer timer;
     LocalMesh localMesh;
     RuntimeParameters runtimeParameters(argc, argv);
+        GlobalMesh globalMesh = GlobalMesh(runtimeParameters);
     std::vector<MeshUpdate> incomingUpdates;
     std::vector<MeshUpdate> outgoingUpdates;
     std::vector<TaskGroup> taskGroups = initializeTaskGroups();
@@ -26,7 +27,6 @@ int main(int argc, char** argv) {
     if (world.rank() == 0) {
         // load mesh file and perform initial sequential refinement
         timer.start("Loading Input");
-        GlobalMesh globalMesh = GlobalMesh(runtimeParameters);
         globalMesh.loadFromRandom();
         timer.stop("Loading Input");
 
@@ -35,9 +35,8 @@ int main(int argc, char** argv) {
         timer.stop("Global Sequential Refine");
 
         // visualize
-        globalMesh.visualizePoints();
-        globalMesh.visualizeTriangles();
-        globalMesh.saveVisualization();
+        
+        //globalMesh.mesh->writeWebScene("input");
 
         // split globalMesh into localMeshes and send them to threads
         std::vector<LocalMesh> localMeshes = globalMesh.splitMesh(world.size(), false);
@@ -107,8 +106,6 @@ int main(int argc, char** argv) {
                 outgoingUpdates.push_back(update);
             }
         }
-        std::cout << "[Thread " << world.rank() << "] has posted all send requests" << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
 
         // wait on all updates to complete
         while (!incomingUpdates.empty() || !outgoingUpdates.empty()) {
@@ -134,6 +131,7 @@ int main(int argc, char** argv) {
             }
         }
     }
+    world.barrier();
 
     // End of parallel compute
     if (world.rank() == 0) {
@@ -142,9 +140,10 @@ int main(int argc, char** argv) {
         std::vector<LocalMesh> localMeshes;
         mpi::gather(world, localMesh, localMeshes, 0);
 
-        GlobalMesh outputMesh(runtimeParameters);
-        outputMesh.loadFromLocalMeshes(localMeshes);
-        outputMesh.saveToPLY();
+        globalMesh.loadFromLocalMeshes(localMeshes);
+        globalMesh.visualizePoints();
+        globalMesh.visualizeTriangles();
+        globalMesh.saveVisualization();
 
         timer.stop("Total Time");
     } else {

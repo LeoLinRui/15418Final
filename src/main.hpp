@@ -232,7 +232,7 @@ std::vector<Point2*> pointsInBbox(SmartPtr mesh, const Bbox2& bbox) {
     std::vector<Point2*> allPoints;
     mesh->getVertexPointers(allPoints);
     for (auto& point : allPoints) {
-        if (bbox.isInBox(*point)) {
+        if (bbox.isInBox(*point) && !mesh->isConstraint(point)) {
             validPoints.push_back(point);
         }
     }
@@ -298,6 +298,8 @@ struct LocalMesh {
         
         mesh.getMesh()->refine(refineZone, runtimeParameters.minAngle, 
             runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, true);
+
+        mesh.getMesh()->deleteZone(refineZone);
     }
 
     /*
@@ -331,6 +333,8 @@ struct GlobalMesh {
     std::unique_ptr<Visualizer2> visualizer;
 
     // MeshGenParams initMeshGenParams; // params for initial sequential refinement
+
+    GlobalMesh() {}
 
     GlobalMesh(RuntimeParameters params) {
         mesh = std::make_unique<Fade_2D>();
@@ -451,7 +455,7 @@ struct GlobalMesh {
     Used to combine results as the end of computation.
     */
     void loadFromLocalMeshes(std::vector<LocalMesh>& localMeshes) {
-        mesh.reset(new Fade_2D());
+        mesh->reset();
 
         for (auto& localMesh : localMeshes) {
             std::vector<Point2*> points;
