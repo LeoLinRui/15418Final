@@ -29,7 +29,7 @@ struct RuntimeParameters {
     double minEdgeLength;
     double maxEdgeLength;
 
-    RuntimeParameters() : numProcessors(1), minAngle(0.0), minEdgeLength(0.0), maxEdgeLength(0.0) {
+    RuntimeParameters() : numProcessors(1), minAngle(20.0), minEdgeLength(0), maxEdgeLength(100.0) {
     }
 
     RuntimeParameters(int argc, char** argv) {
@@ -43,9 +43,9 @@ struct RuntimeParameters {
             ("help,h", "produce help message")
             //("input,i", po::value<std::string>(&inFilePath)->required(), "input file path")
             //("output,o", po::value<std::string>(&outFilePath)->required(), "output file path")
-            ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(10000), "number of randomly generated points")
+            ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(1000), "number of randomly generated points")
             ("processors,p", po::value<int>(&numProcessors)->default_value(1), "number of processors")
-            ("min-angle,a", po::value<double>(&minAngle)->default_value(10.0), "minimum angle")
+            ("min-angle,a", po::value<double>(&minAngle)->default_value(25.0), "minimum angle")
             ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(0.0), "minimum edge length")
             ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(1.0), "maximum edge length");
 
@@ -232,7 +232,7 @@ std::vector<Point2*> pointsInBbox(SmartPtr mesh, const Bbox2& bbox) {
     std::vector<Point2*> allPoints;
     mesh->getVertexPointers(allPoints);
     for (auto& point : allPoints) {
-        if (bbox.isInBox(*point)) {
+        if (bbox.isInBox(*point) && !mesh->isConstraint(point)) {
             validPoints.push_back(point);
         }
     }
@@ -280,8 +280,13 @@ struct LocalMesh {
         incomingMesh.getMesh()->getVertexPointers(pointsToInsert);
         
         for (auto& point : pointsToInsert) {
-            //if (bbox.isInBox(*point))
-                mesh.getMesh()->insert(*point);
+            if (!bbox.isInBox(*point)) {
+                // print point and bbox
+                std::cout << "Point: " << *point << std::endl;
+                std::cout << "Bbox: " << bbox << std::endl;
+                throw std::runtime_error("Point in incoming mesh is not in bbox");
+            } 
+            mesh.getMesh()->insert(*point);
         }
     }
 
@@ -304,7 +309,7 @@ struct LocalMesh {
         }
         
         mesh.getMesh()->refine(refineZone, runtimeParameters.minAngle, 
-            runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, true);
+            runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, false);
 
         mesh.getMesh()->deleteZone(refineZone);
     }
@@ -569,9 +574,9 @@ std::vector<TaskGroup> initializeTaskGroups() {
         Task(Operation::Send, Neighbor::Right, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
             bbox.setMinX(b->get_maxX() - 2 * r);
-            bbox.setMinY(b->get_minY());
+            bbox.setMinY(b->get_minY() + 2 * r);
             bbox.setMaxX(b->get_maxX());
-            bbox.setMaxY(b->get_maxY() - 2 * r);
+            bbox.setMaxY(b->get_maxY());
             return bbox;
         }),
         Task(Operation::Send, Neighbor::BR, [](Bbox2* b, double r) {
@@ -602,7 +607,7 @@ std::vector<TaskGroup> initializeTaskGroups() {
         }),
         Task(Operation::Receive, Neighbor::TL, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
-            bbox.setMinX(b->get_maxX() - 2 * r);
+            bbox.setMinX(b->get_minX() - 2 * r);
             bbox.setMinY(b->get_maxY());
             bbox.setMaxX(b->get_minX());
             bbox.setMaxY(b->get_maxY() + 2 * r);

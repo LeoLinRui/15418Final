@@ -52,21 +52,15 @@ int main(int argc, char** argv) {
     // Start of Computation
     if (world.rank() == 0) timer.start("Parallel Compute Region");
 
+    // print out rank with local mesh bbox
+    std::cout << "[Thread " << world.rank() << "] Local mesh bbox: " << localMesh.bbox << std::endl;
+
     // loop through each taskGroup (phase)
     int taskGroupIndex = 0;
     for (auto& taskGroup : taskGroups) {
-        if (taskGroupIndex == 5) {
-            continue;
-        }
+        if (taskGroupIndex == 5) continue;
         std::cout << "[Thread " << world.rank() << "] Starting task group " << taskGroupIndex << std::endl;
         world.barrier();
-
-        // print out neighbors of this thread with thread number
-        for (int i = 0; i < localMesh.neighbors.size(); i++) {
-            if (localMesh.neighbors[static_cast<Neighbor>(i)].has_value()) {
-                std::cout << "[Thread " << world.rank() << "] Neighbor " << i << " is thread " << localMesh.neighbors[static_cast<Neighbor>(i)].value() << std::endl;
-            }
-        }
 
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
@@ -84,7 +78,7 @@ int main(int argc, char** argv) {
         // do refinement, if any
         if (taskGroup.refineTask.has_value()) {
             std::cout << "[Thread " << world.rank() << "] Starting local refinement" << std::endl;
-            //localMesh.refineBbox(taskGroup.refineTask.value().bbox(&localMesh.bbox, localMesh.maxCircumradius));
+            localMesh.refineBbox(taskGroup.refineTask.value().bbox(&localMesh.bbox, localMesh.maxCircumradius));
             std::cout << "[Thread " << world.rank() << "] Local refinement complete" << std::endl;
         }
 
