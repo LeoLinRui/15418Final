@@ -23,6 +23,7 @@ namespace po = boost::program_options;
 struct RuntimeParameters {
     std::string inFilePath;
     std::string outFilePath;
+    size_t numRandomPoints;
     int numProcessors;
     double minAngle;
     double minEdgeLength;
@@ -40,12 +41,13 @@ struct RuntimeParameters {
         po::options_description desc("Allowed options");
         desc.add_options()
             ("help,h", "produce help message")
-            ("input,i", po::value<std::string>(&inFilePath)->required(), "input file path")
-            ("output,o", po::value<std::string>(&outFilePath)->required(), "output file path")
+            //("input,i", po::value<std::string>(&inFilePath)->required(), "input file path")
+            //("output,o", po::value<std::string>(&outFilePath)->required(), "output file path")
+            ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(1000000), "number of randomly generated points")
             ("processors,p", po::value<int>(&numProcessors)->default_value(1), "number of processors")
             ("min-angle,a", po::value<double>(&minAngle)->default_value(0.0), "minimum angle")
             ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(0.0), "minimum edge length")
-            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(0.0), "maximum edge length");
+            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(1.0), "maximum edge length");
 
         po::variables_map vm;
         try {
