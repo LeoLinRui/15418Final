@@ -29,11 +29,7 @@ struct RuntimeParameters {
     double minEdgeLength;
     double maxEdgeLength;
 
-    double MIN_ANGLE = 25.0;
-    double MIN_EDGE_LENGTH = 0.0;
-    double MAX_EDGE_LENGTH = 10.0;
-
-    RuntimeParameters() : numProcessors(1), minAngle(MIN_ANGLE), minEdgeLength(MIN_EDGE_LENGTH), maxEdgeLength(MAX_EDGE_LENGTH) {
+    RuntimeParameters() : numProcessors(1), minAngle(27), minEdgeLength(0.0), maxEdgeLength(15.0) {
     }
 
     RuntimeParameters(int argc, char** argv) {
@@ -49,9 +45,9 @@ struct RuntimeParameters {
             //("output,o", po::value<std::string>(&outFilePath)->required(), "output file path")
             ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(10000), "number of randomly generated points")
             ("processors,p", po::value<int>(&numProcessors)->default_value(1), "number of processors")
-            ("min-angle,a", po::value<double>(&minAngle)->default_value(MIN_ANGLE), "minimum angle")
-            ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(MIN_EDGE_LENGTH), "minimum edge length")
-            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(MAX_EDGE_LENGTH), "maximum edge length");
+            ("min-angle,a", po::value<double>(&minAngle)->default_value(27), "minimum angle")
+            ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(0.0), "minimum edge length")
+            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(20.0), "maximum edge length");
 
         po::variables_map vm;
         try {
@@ -236,7 +232,7 @@ std::vector<Point2*> pointsInBbox(SmartPtr mesh, const Bbox2& bbox) {
     std::vector<Point2*> allPoints;
     mesh->getVertexPointers(allPoints);
     for (auto& point : allPoints) {
-        if (bbox.isInBox(*point)) { // && !mesh->isConstraint(point)
+        if (bbox.isInBox(*point) && !mesh->isConstraint(point)) { //
             validPoints.push_back(point);
         }
     }
@@ -299,8 +295,6 @@ struct LocalMesh {
     */
     void refineBbox(const Bbox2& bbox) {
         std::vector<Triangle2*> validTriangles = trianglesInBbox(mesh.getMesh(), bbox);
-        std::cout << "Refining local mesh with " << mesh.getMesh()->numberOfTriangles() << 
-            " triangles" << std::endl;
         
         Zone2* refineZone = mesh.getMesh()->createZone(validTriangles);
         refineZone = refineZone->convertToBoundedZone();
@@ -311,7 +305,7 @@ struct LocalMesh {
             exit(0);
             return;
         }
-        
+
         mesh.getMesh()->refine(refineZone, runtimeParameters.minAngle, 
             runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, false);
 
@@ -379,7 +373,7 @@ struct GlobalMesh {
 
         // refine the global zone
         std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
-        mesh->refine(refineZone, 10, 10, 500, true);
+        mesh->refine(refineZone, 20, 10, 500, true);
         std::cout << "Global refinement complete. Mesh has " << mesh->numberOfPoints() <<
             " points after refinement" << std::endl;
 
@@ -749,6 +743,7 @@ std::vector<TaskGroup> initializeTaskGroups() {
         });
 
     TaskGroup phaseFourTasks;
+    /*
     phaseFourTasks.sendTasks = {
         Task(Operation::Send, Neighbor::Left, [](Bbox2* b, double r) {
             Bbox2 bbox = Bbox2();
@@ -801,6 +796,7 @@ std::vector<TaskGroup> initializeTaskGroups() {
             return bbox;
         })
     };
+    */
     phaseFourTasks.refineTask =
         Task(Operation::Refine, [](Bbox2* b, double r) { 
             Bbox2 bbox = Bbox2();

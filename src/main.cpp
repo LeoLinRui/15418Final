@@ -30,6 +30,11 @@ int main(int argc, char** argv) {
         globalMesh.loadFromRandom();
         timer.stop("Loading Input");
 
+        globalMesh.initializeVisualizer();
+        globalMesh.visualizePoints();
+        globalMesh.visualizeTriangles();
+        globalMesh.saveVisualization();
+
         timer.start("Global Sequential Refine");
         globalMesh.roughRefineMesh();
         timer.stop("Global Sequential Refine");
@@ -58,8 +63,12 @@ int main(int argc, char** argv) {
     // loop through each taskGroup (phase)
     int taskGroupIndex = 0;
     for (auto& taskGroup : taskGroups) {
-        //if (taskGroupIndex == 0) continue;
+        if (taskGroupIndex == 4) { // early stop to see intermediate results
+            taskGroupIndex++;
+            break;
+        }
         std::cout << "[Thread " << world.rank() << "] Starting task group " << taskGroupIndex << std::endl;
+        world.barrier();
 
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
@@ -96,7 +105,8 @@ int main(int argc, char** argv) {
                     buffer->getMesh()->insert(*point);
                 }
 
-                printf("[Thread %d] Sending %d points to %d\n", world.rank(), buffer->getMesh()->numberOfPoints(), requestDestination.value());
+                std::cout << "[Thread " << world.rank() << "] sending " << buffer->getMesh()->numberOfPoints() 
+                    << " points in " << sendBbox << " to " << requestDestination.value() << std::endl;
 
                 mpi::request request = world.isend(requestDestination.value(), 0, *buffer);
                 MeshUpdate update{request, sendBbox, buffer};
@@ -119,7 +129,8 @@ int main(int argc, char** argv) {
             for (auto it = incomingUpdates.begin(); it != incomingUpdates.end();) {
                 if (it->request.test()) {
                     std::cout << "[Thread " << world.rank() << "] Received " << 
-                        it->buffer->getMesh()->numberOfPoints() << " points, updating local mesh" << std::endl;
+                        it->buffer->getMesh()->numberOfPoints() << " points for box " << 
+                        it->targetBox << ". localMesh bbox is " << localMesh.bbox << std::endl;
                     localMesh.updateBbox(it->targetBox, *it->buffer);
                     it = incomingUpdates.erase(it);
                 } else {
@@ -139,14 +150,8 @@ int main(int argc, char** argv) {
         mpi::gather(world, localMesh, localMeshes, 0);
 
         globalMesh.loadFromLocalMeshes(localMeshes);
-        timer.start("Global Epilogue Refine");
-        // globalMesh.refineMesh();
-        timer.stop("Global Epilogue Refine");
 
-        globalMesh.initializeVisualizer();
-        globalMesh.visualizePoints();
-        globalMesh.visualizeTriangles();
-        globalMesh.saveVisualization();
+        
 
         timer.stop("Total Time");
     } else {
