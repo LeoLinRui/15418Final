@@ -29,7 +29,7 @@ struct RuntimeParameters {
     double minEdgeLength;
     double maxEdgeLength;
 
-    RuntimeParameters() : numProcessors(1), minAngle(20.0), minEdgeLength(0), maxEdgeLength(100.0) {
+    RuntimeParameters() : numProcessors(1), minAngle(25.0), minEdgeLength(0), maxEdgeLength(10.0) {
     }
 
     RuntimeParameters(int argc, char** argv) {
@@ -47,7 +47,7 @@ struct RuntimeParameters {
             ("processors,p", po::value<int>(&numProcessors)->default_value(1), "number of processors")
             ("min-angle,a", po::value<double>(&minAngle)->default_value(25.0), "minimum angle")
             ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(0.0), "minimum edge length")
-            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(1.0), "maximum edge length");
+            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(10.0), "maximum edge length");
 
         po::variables_map vm;
         try {
