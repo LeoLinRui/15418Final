@@ -58,9 +58,9 @@ int main(int argc, char** argv) {
     // loop through each taskGroup (phase)
     int taskGroupIndex = 0;
     for (auto& taskGroup : taskGroups) {
-        if (taskGroupIndex == 5) continue;
+        if (taskGroupIndex == 0) continue;
         std::cout << "[Thread " << world.rank() << "] Starting task group " << taskGroupIndex << std::endl;
-        world.barrier();
+        //world.barrier();
 
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
@@ -77,9 +77,11 @@ int main(int argc, char** argv) {
 
         // do refinement, if any
         if (taskGroup.refineTask.has_value()) {
-            std::cout << "[Thread " << world.rank() << "] Starting local refinement" << std::endl;
+            std::cout << "[Thread " << world.rank() << "] Starting local refinement with " << 
+                localMesh.mesh.getMesh()->numberOfTriangles() << " triangles" << std::endl;
             localMesh.refineBbox(taskGroup.refineTask.value().bbox(&localMesh.bbox, localMesh.maxCircumradius));
-            std::cout << "[Thread " << world.rank() << "] Local refinement complete" << std::endl;
+            std::cout << "[Thread " << world.rank() << "] Local refinement complete, it now has " <<
+                localMesh.mesh.getMesh()->numberOfTriangles() << " triangles" << std::endl;
         }
 
         // post all async sends
@@ -144,7 +146,7 @@ int main(int argc, char** argv) {
 
         globalMesh.loadFromLocalMeshes(localMeshes);
         timer.start("Global Epilogue Refine");
-        globalMesh.refineMesh();
+        // globalMesh.refineMesh();
         timer.stop("Global Epilogue Refine");
 
         globalMesh.visualizePoints();

@@ -29,7 +29,7 @@ struct RuntimeParameters {
     double minEdgeLength;
     double maxEdgeLength;
 
-    RuntimeParameters() : numProcessors(1), minAngle(25.0), minEdgeLength(0), maxEdgeLength(10.0) {
+    RuntimeParameters() : numProcessors(1), minAngle(25.0), minEdgeLength(0.0), maxEdgeLength(50.0) {
     }
 
     RuntimeParameters(int argc, char** argv) {
@@ -43,11 +43,11 @@ struct RuntimeParameters {
             ("help,h", "produce help message")
             //("input,i", po::value<std::string>(&inFilePath)->required(), "input file path")
             //("output,o", po::value<std::string>(&outFilePath)->required(), "output file path")
-            ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(1000), "number of randomly generated points")
+            ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(10000), "number of randomly generated points")
             ("processors,p", po::value<int>(&numProcessors)->default_value(1), "number of processors")
             ("min-angle,a", po::value<double>(&minAngle)->default_value(25.0), "minimum angle")
             ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(0.0), "minimum edge length")
-            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(10.0), "maximum edge length");
+            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(50.0), "maximum edge length");
 
         po::variables_map vm;
         try {
@@ -232,7 +232,7 @@ std::vector<Point2*> pointsInBbox(SmartPtr mesh, const Bbox2& bbox) {
     std::vector<Point2*> allPoints;
     mesh->getVertexPointers(allPoints);
     for (auto& point : allPoints) {
-        if (bbox.isInBox(*point) && !mesh->isConstraint(point)) {
+        if (bbox.isInBox(*point)) { // && !mesh->isConstraint(point)
             validPoints.push_back(point);
         }
     }
@@ -322,6 +322,7 @@ struct LocalMesh {
         archive & mesh;
         archive & neighbors;
         archive & maxCircumradius;
+        //archive & runtimeParameters;
 
         std::vector<double> bboxData;
         if (Archive::is_saving::value) {
@@ -375,7 +376,7 @@ struct GlobalMesh {
 
         // refine the global zone
         std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
-        mesh->refine(refineZone, 20, 1, 500, true);
+        mesh->refine(refineZone, 20, 50, 100, true);
         std::cout << "Global refinement complete. Mesh has " << mesh->numberOfPoints() <<
             " points after refinement" << std::endl;
 
@@ -396,7 +397,7 @@ struct GlobalMesh {
         // refine the global zone
         std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
         mesh->refine(refineZone, runtimeParameters.minAngle, 
-            runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, false);
+            runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, true);
         std::cout << "Global refinement complete. Mesh has " << mesh->numberOfPoints() <<
             " points after refinement" << std::endl;
 
@@ -526,7 +527,7 @@ struct GlobalMesh {
     */
     void loadFromRandom() {
         std::vector<Point2> generatedPoints;
-        generateRandomPoints(runtimeParameters.numRandomPoints, 0.0, 1000.0, generatedPoints);
+        generateRandomPoints(runtimeParameters.numRandomPoints, 0.0, 10000.0, generatedPoints, 15418);
         std::cout << "Generated " << generatedPoints.size() << " random points" << std::endl;
         
         mesh->insert(generatedPoints);
