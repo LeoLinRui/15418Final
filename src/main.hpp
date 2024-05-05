@@ -274,22 +274,15 @@ struct LocalMesh {
     void updateBbox(const Bbox2& bbox, SerializableMesh& incomingMesh) {  
         std::vector<Point2*> pointsToRemove = pointsInBbox(mesh.getMesh(), bbox);
         mesh.getMesh()->remove(pointsToRemove);
-        //std::cout << "Removed " << pointsToRemove.size() << " points from local mesh" << std::endl;
         
-        std::vector<Point2*> pointsToInsert;
-        incomingMesh.getMesh()->getVertexPointers(pointsToInsert);
-        
-        for (auto& point : pointsToInsert) {
-            /*
-            if (!bbox.isInBox(*point)) {
-                // print point and bbox
-                std::cout << "Point: " << *point << std::endl;
-                std::cout << "Bbox: " << bbox << std::endl;
-                throw std::runtime_error("Point in incoming mesh is not in bbox");
-            }
-            */ 
-            mesh.getMesh()->insert(*point);
+        std::vector<Point2*> pointsToInsertPtrs;
+        incomingMesh.getMesh()->getVertexPointers(pointsToInsertPtrs);
+
+        std::vector<Point2> pointsToInsert;
+        for (auto& point : pointsToInsertPtrs) {
+            pointsToInsert.push_back(*point);
         }
+        mesh.getMesh()->insert(pointsToInsert);
     }
 
     /*
@@ -312,6 +305,18 @@ struct LocalMesh {
             runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, false);
 
         mesh.getMesh()->deleteZone(refineZone);
+    }
+
+    std::vector<std::pair<double, double>> getSerializablePoints() {
+        std::vector<Point2*> points;
+        mesh.getMesh()->getVertexPointers(points);
+        std::vector<std::pair<double, double>> serializablePoints;
+        for (auto& point : points) {
+            if (bbox.isInBox(*point)) {
+                serializablePoints.push_back({point->x(), point->y()});
+            }
+        }
+        return serializablePoints;
     }
 
     /*
@@ -445,11 +450,12 @@ struct GlobalMesh {
                 localMesh.bbox.setMaxY(bboxAll.get_minY() + (row + 1) * boxHeight);
 
                 // insert points to localMesh
-                std::vector<Point2*> pointsToAdd = pointsInBbox(mesh, localMesh.bbox);
-                for (auto& point : pointsToAdd) {
-                    localMesh.mesh.getMesh()->insert(*point);
-                    //assert(localMesh.bbox.isInBox(*point));
+                std::vector<Point2*> pointsToAddPtrs = pointsInBbox(mesh, localMesh.bbox);
+                std::vector<Point2> pointsToAdd;
+                for (auto& point : pointsToAddPtrs) {
+                    pointsToAdd.push_back(*point);
                 }
+                localMesh.mesh.getMesh()->insert(pointsToAdd);
 
                 // assign neighbors
                 localMesh.neighbors[Neighbor::Top] = row < numRows - 1 ?
@@ -492,15 +498,33 @@ struct GlobalMesh {
     void loadFromLocalMeshes(std::vector<LocalMesh>& localMeshes) {
         mesh->reset();
 
+        std::vector<Point2> pointsToAdd;
         for (auto& localMesh : localMeshes) {
             std::vector<Point2*> points;
             localMesh.mesh.getMesh()->getVertexPointers(points);
-            // exclude the boarder overlap points
-            std::vector<Point2*> pointsToAdd = pointsInBbox(localMesh.mesh.getMesh(), localMesh.bbox);
-            for (auto& point : pointsToAdd) {
-                this->mesh->insert(*point);
+            std::vector<Point2*> pointsToAddPtrs = pointsInBbox(localMesh.mesh.getMesh(), localMesh.bbox);
+
+            for (auto& point : pointsToAddPtrs) {
+                pointsToAdd.push_back(*point);
             }
         }
+        this->mesh->insert(pointsToAdd);
+    }
+
+    /*
+    Delete the current mesh and reconstruct one by combining a list of localMeshes.
+    Used to combine results as the end of computation.
+    */
+    void loadFromLocalMeshes(std::vector<std::vector<std::pair<double, double>>> resultPoints) {
+        mesh->reset();
+
+        std::vector<Point2> pointsToAdd;
+        for (auto& points : resultPoints) {
+            for (auto& point : points) {
+                pointsToAdd.push_back(Point2(point.first, point.second));
+            }
+        }
+        this->mesh->insert(pointsToAdd);
     }
 
     /*

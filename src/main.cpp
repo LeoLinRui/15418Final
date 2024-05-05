@@ -145,13 +145,13 @@ int main(int argc, char** argv) {
         timer.stop("Parallel Compute Region");
 
         timer.start("Gather Result Mesh");
-        std::vector<LocalMesh> localMeshes;
-        mpi::gather(world, localMesh, localMeshes, 0);
+        std::vector<std::vector<std::pair<double, double>>> resultPoints;
+        mpi::gather(world, localMesh.getSerializablePoints(), resultPoints, 0);
         timer.stop("Gather Result Mesh");
 
         timer.start("Combine Result Mesh");
         std::cout << "main process using " << setGlobalNumCPU(0) <<" threads" << std::endl;
-        globalMesh.loadFromLocalMeshes(localMeshes);
+        globalMesh.loadFromLocalMeshes(resultPoints);
         timer.stop("Combine Result Mesh");
 
         /*
@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
         timer.stop("Total Time");
     } else {
         // worker send local mesh
-        mpi::gather(world, localMesh, 0);
+        mpi::gather(world, localMesh.getSerializablePoints(), 0);
     }
 
     return 0;
