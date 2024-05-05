@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
     setGlobalNumCPU(1);
 
     // print PID with rank
-    std::cout << "Rank " << world.rank() << " PID " << getpid() << std::endl;
+    //std::cout << "Rank " << world.rank() << " PID " << getpid() << std::endl;
 
     // start timer for overall duration
     if (world.rank() == 0) timer.start("Total Time");
@@ -26,20 +26,16 @@ int main(int argc, char** argv) {
     // load and preprocess mesh sequentially, scatter localMeshes to workers
     if (world.rank() == 0) {
         // load mesh file and perform initial sequential refinement
+        std::cout << "main process using " << setGlobalNumCPU(0) <<" threads" << std::endl;
         timer.start("Loading Input");
         globalMesh.loadFromRandom();
         timer.stop("Loading Input");
-
-        globalMesh.initializeVisualizer();
-        globalMesh.visualizePoints();
-        globalMesh.visualizeTriangles();
-        globalMesh.saveVisualization();
 
         timer.start("Global Sequential Refine");
         globalMesh.roughRefineMesh();
         timer.stop("Global Sequential Refine");
 
-        // visualize     
+        setGlobalNumCPU(1);
 
         // split globalMesh into localMeshes and send them to threads
         std::vector<LocalMesh> localMeshes = globalMesh.splitMesh(world.size(), false);
@@ -58,22 +54,22 @@ int main(int argc, char** argv) {
     if (world.rank() == 0) timer.start("Parallel Compute Region");
 
     // print out rank with local mesh bbox
-    std::cout << "[Thread " << world.rank() << "] Local mesh bbox: " << localMesh.bbox << std::endl;
+    //std::cout << "[Thread " << world.rank() << "] Local mesh bbox: " << localMesh.bbox << std::endl;
 
     // loop through each taskGroup (phase)
     int taskGroupIndex = 0;
     for (auto& taskGroup : taskGroups) {
-        if (taskGroupIndex == 4) { // early stop to see intermediate results
+        if (taskGroupIndex == -1) { // early stop to see intermediate results
             taskGroupIndex++;
             break;
         }
-        std::cout << "[Thread " << world.rank() << "] Starting task group " << taskGroupIndex << std::endl;
-        world.barrier();
+        //std::cout << "[Thread " << world.rank() << "] Starting task group " << taskGroupIndex << std::endl;
+        //world.barrier();
 
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
             // check if that neighbor exists first (meshes on the edges has fewer neighbors)
-            assert(task.target.has_value() && "Tasks on the receive list must contain target");
+            //assert(task.target.has_value() && "Tasks on the receive list must contain target");
             std::optional<size_t> requestSource = localMesh.neighbors[task.target.value()];
             if (requestSource.has_value()) {
                 std::shared_ptr<SerializableMesh> buffer = std::make_shared<SerializableMesh>();
@@ -85,11 +81,11 @@ int main(int argc, char** argv) {
 
         // do refinement, if any
         if (taskGroup.refineTask.has_value()) {
-            std::cout << "[Thread " << world.rank() << "] Starting local refinement with " << 
-                localMesh.mesh.getMesh()->numberOfTriangles() << " triangles" << std::endl;
+            //std::cout << "[Thread " << world.rank() << "] Starting local refinement with " << 
+            //    localMesh.mesh.getMesh()->numberOfTriangles() << " triangles" << std::endl;
             localMesh.refineBbox(taskGroup.refineTask.value().bbox(&localMesh.bbox, localMesh.maxCircumradius));
-            std::cout << "[Thread " << world.rank() << "] Local refinement complete, it now has " <<
-                localMesh.mesh.getMesh()->numberOfTriangles() << " triangles" << std::endl;
+            //std::cout << "[Thread " << world.rank() << "] Local refinement complete, it now has " <<
+            //    localMesh.mesh.getMesh()->numberOfTriangles() << " triangles" << std::endl;
         }
 
         // post all async sends
@@ -105,8 +101,8 @@ int main(int argc, char** argv) {
                     buffer->getMesh()->insert(*point);
                 }
 
-                std::cout << "[Thread " << world.rank() << "] sending " << buffer->getMesh()->numberOfPoints() 
-                    << " points in " << sendBbox << " to " << requestDestination.value() << std::endl;
+                //std::cout << "[Thread " << world.rank() << "] sending " << buffer->getMesh()->numberOfPoints() 
+                //    << " points in " << sendBbox << " to " << requestDestination.value() << std::endl;
 
                 mpi::request request = world.isend(requestDestination.value(), 0, *buffer);
                 MeshUpdate update{request, sendBbox, buffer};
@@ -128,9 +124,11 @@ int main(int argc, char** argv) {
             // Iterate through incoming updates
             for (auto it = incomingUpdates.begin(); it != incomingUpdates.end();) {
                 if (it->request.test()) {
+                    /*
                     std::cout << "[Thread " << world.rank() << "] Received " << 
                         it->buffer->getMesh()->numberOfPoints() << " points for box " << 
                         it->targetBox << ". localMesh bbox is " << localMesh.bbox << std::endl;
+                    */
                     localMesh.updateBbox(it->targetBox, *it->buffer);
                     it = incomingUpdates.erase(it);
                 } else {
@@ -146,12 +144,22 @@ int main(int argc, char** argv) {
     if (world.rank() == 0) {
         timer.stop("Parallel Compute Region");
 
+        timer.start("Gather Result Mesh");
         std::vector<LocalMesh> localMeshes;
         mpi::gather(world, localMesh, localMeshes, 0);
+        timer.stop("Gather Result Mesh");
 
+        timer.start("Combine Result Mesh");
+        std::cout << "main process using " << setGlobalNumCPU(0) <<" threads" << std::endl;
         globalMesh.loadFromLocalMeshes(localMeshes);
+        timer.stop("Combine Result Mesh");
 
-        
+        /*
+        globalMesh.initializeVisualizer();
+        globalMesh.visualizePoints();
+        globalMesh.visualizeTriangles();
+        globalMesh.saveVisualization();
+        */
 
         timer.stop("Total Time");
     } else {

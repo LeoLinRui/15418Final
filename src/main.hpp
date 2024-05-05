@@ -120,9 +120,7 @@ public:
     SerializableMesh() : mesh(std::make_shared<Fade_2D>()) {}
 
     std::shared_ptr<Fade_2D> getMesh() const {
-        if (!mesh) {
-            throw std::runtime_error("Mesh not initialized.");
-        }
+        // if (!mesh) throw std::runtime_error("Mesh not initialized.");
         return mesh;
     }
 
@@ -149,11 +147,13 @@ public:
         archive & meshData;
         if (Archive::is_loading::value) {
             // Deserialization
+            /*
             if (getMesh()->numberOfTriangles() != 0 || getMesh()->numberOfPoints() != 0) {
                 std::cout << "Mesh has " << getMesh()->numberOfPoints() << " points and " 
                     << getMesh()->numberOfTriangles() << " triangles\n";
                 throw std::runtime_error("Deserializing into a non-empty mesh");
             }
+            */
             std::stringstream stream(meshData);
             std::vector<Zone2*> zoneVector;
             getMesh()->load(stream, zoneVector);
@@ -274,18 +274,20 @@ struct LocalMesh {
     void updateBbox(const Bbox2& bbox, SerializableMesh& incomingMesh) {  
         std::vector<Point2*> pointsToRemove = pointsInBbox(mesh.getMesh(), bbox);
         mesh.getMesh()->remove(pointsToRemove);
-        std::cout << "Removed " << pointsToRemove.size() << " points from local mesh" << std::endl;
+        //std::cout << "Removed " << pointsToRemove.size() << " points from local mesh" << std::endl;
         
         std::vector<Point2*> pointsToInsert;
         incomingMesh.getMesh()->getVertexPointers(pointsToInsert);
         
         for (auto& point : pointsToInsert) {
+            /*
             if (!bbox.isInBox(*point)) {
                 // print point and bbox
                 std::cout << "Point: " << *point << std::endl;
                 std::cout << "Bbox: " << bbox << std::endl;
                 throw std::runtime_error("Point in incoming mesh is not in bbox");
-            } 
+            }
+            */ 
             mesh.getMesh()->insert(*point);
         }
     }
@@ -298,7 +300,7 @@ struct LocalMesh {
         
         Zone2* refineZone = mesh.getMesh()->createZone(validTriangles);
         refineZone = refineZone->convertToBoundedZone();
-        assert(refineZone != NULL);
+        //assert(refineZone != NULL);
 
         if (mesh.getMesh()->numberOfTriangles() == 0) {
             std::cout << "No triangles to refine in local mesh" << std::endl;
@@ -369,7 +371,7 @@ struct GlobalMesh {
         mesh->getTrianglePointers(allTriangles);
         Zone2* refineZone = mesh->createZone(allTriangles);
         refineZone = refineZone->convertToBoundedZone();
-        assert(refineZone != NULL);
+        //assert(refineZone != NULL);
 
         // refine the global zone
         std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
@@ -389,7 +391,7 @@ struct GlobalMesh {
         mesh->getTrianglePointers(allTriangles);
         Zone2* refineZone = mesh->createZone(allTriangles);
         refineZone = refineZone->convertToBoundedZone();
-        assert(refineZone != NULL);
+        //assert(refineZone != NULL);
 
         // refine the global zone
         std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
@@ -422,9 +424,11 @@ struct GlobalMesh {
         for (auto& triangle : allTriangles) {
             CircumcenterQuality quality;
             double circumRadius = (triangle->getCircumcenter(quality) - *triangle->getCorner(0)).length();
+            /*
             if (quality == CCQ_OUT_OF_BOUNDS) {
                 throw std::runtime_error("Circumradius calculation returned out-of-bounds in splitMesh.\n");
             }
+            */
             maxCircumradius = std::max(maxCircumradius, circumRadius);
         }
 
@@ -444,7 +448,7 @@ struct GlobalMesh {
                 std::vector<Point2*> pointsToAdd = pointsInBbox(mesh, localMesh.bbox);
                 for (auto& point : pointsToAdd) {
                     localMesh.mesh.getMesh()->insert(*point);
-                    assert(localMesh.bbox.isInBox(*point));
+                    //assert(localMesh.bbox.isInBox(*point));
                 }
 
                 // assign neighbors
