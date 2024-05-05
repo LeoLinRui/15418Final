@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
     Timer timer;
     LocalMesh localMesh;
     RuntimeParameters runtimeParameters(argc, argv);
-        GlobalMesh globalMesh = GlobalMesh(runtimeParameters);
+    GlobalMesh globalMesh = GlobalMesh(runtimeParameters);
     std::vector<MeshUpdate> incomingUpdates;
     std::vector<MeshUpdate> outgoingUpdates;
     std::vector<TaskGroup> taskGroups = initializeTaskGroups();
@@ -58,9 +58,8 @@ int main(int argc, char** argv) {
     // loop through each taskGroup (phase)
     int taskGroupIndex = 0;
     for (auto& taskGroup : taskGroups) {
-        if (taskGroupIndex == 0) continue;
+        //if (taskGroupIndex == 0) continue;
         std::cout << "[Thread " << world.rank() << "] Starting task group " << taskGroupIndex << std::endl;
-        //world.barrier();
 
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
@@ -139,16 +138,12 @@ int main(int argc, char** argv) {
         std::vector<LocalMesh> localMeshes;
         mpi::gather(world, localMesh, localMeshes, 0);
 
-        // print out the bbox of each local mesh
-        for (int i = 0; i < localMeshes.size(); i++) {
-            std::cout << "Local Mesh " << i << " bbox: " << localMeshes[i].bbox << std::endl;
-        }
-
         globalMesh.loadFromLocalMeshes(localMeshes);
         timer.start("Global Epilogue Refine");
         // globalMesh.refineMesh();
         timer.stop("Global Epilogue Refine");
 
+        globalMesh.initializeVisualizer();
         globalMesh.visualizePoints();
         globalMesh.visualizeTriangles();
         globalMesh.saveVisualization();

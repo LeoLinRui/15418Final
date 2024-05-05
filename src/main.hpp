@@ -29,7 +29,11 @@ struct RuntimeParameters {
     double minEdgeLength;
     double maxEdgeLength;
 
-    RuntimeParameters() : numProcessors(1), minAngle(25.0), minEdgeLength(0.0), maxEdgeLength(50.0) {
+    double MIN_ANGLE = 25.0;
+    double MIN_EDGE_LENGTH = 0.0;
+    double MAX_EDGE_LENGTH = 10.0;
+
+    RuntimeParameters() : numProcessors(1), minAngle(MIN_ANGLE), minEdgeLength(MIN_EDGE_LENGTH), maxEdgeLength(MAX_EDGE_LENGTH) {
     }
 
     RuntimeParameters(int argc, char** argv) {
@@ -45,9 +49,9 @@ struct RuntimeParameters {
             //("output,o", po::value<std::string>(&outFilePath)->required(), "output file path")
             ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(10000), "number of randomly generated points")
             ("processors,p", po::value<int>(&numProcessors)->default_value(1), "number of processors")
-            ("min-angle,a", po::value<double>(&minAngle)->default_value(25.0), "minimum angle")
-            ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(0.0), "minimum edge length")
-            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(50.0), "maximum edge length");
+            ("min-angle,a", po::value<double>(&minAngle)->default_value(MIN_ANGLE), "minimum angle")
+            ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(MIN_EDGE_LENGTH), "minimum edge length")
+            ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(MAX_EDGE_LENGTH), "maximum edge length");
 
         po::variables_map vm;
         try {
@@ -352,7 +356,6 @@ struct GlobalMesh {
     GlobalMesh(RuntimeParameters params) {
         mesh = std::make_unique<Fade_2D>();
         runtimeParameters = params;
-        visualizer = std::make_unique<Visualizer2>("visualization.ps");
     }
 
     // Delete the copy constructor and copy assignment operator
@@ -376,7 +379,7 @@ struct GlobalMesh {
 
         // refine the global zone
         std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
-        mesh->refine(refineZone, 20, 50, 100, true);
+        mesh->refine(refineZone, 10, 10, 500, true);
         std::cout << "Global refinement complete. Mesh has " << mesh->numberOfPoints() <<
             " points after refinement" << std::endl;
 
@@ -533,6 +536,10 @@ struct GlobalMesh {
         mesh->insert(generatedPoints);
         std::cout << "Mesh has " << mesh->numberOfPoints() << 
             " vertices after insertion of random points" << std::endl;
+    }
+
+    void initializeVisualizer() {
+        visualizer = std::make_unique<Visualizer2>("visualization.ps");
     }
 
     void visualizePoints() {
