@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
         timer.stop("Loading Input");
 
         timer.start("Global Sequential Refine");
-        globalMesh.refineMesh();
+        globalMesh.roughRefineMesh();
         timer.stop("Global Sequential Refine");
 
         // visualize     
@@ -143,7 +143,10 @@ int main(int argc, char** argv) {
         }
 
         globalMesh.loadFromLocalMeshes(localMeshes);
+        timer.start("Global Epilogue Refine");
         globalMesh.refineMesh();
+        timer.stop("Global Epilogue Refine");
+
         globalMesh.visualizePoints();
         globalMesh.visualizeTriangles();
         globalMesh.saveVisualization();

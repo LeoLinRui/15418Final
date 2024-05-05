@@ -363,9 +363,9 @@ struct GlobalMesh {
     GlobalMesh& operator=(GlobalMesh&&) = delete;
 
     /*
-    Sequentially refine the entire mesh.
+    Sequentially refine the entire mesh with a much lower standard.
     */
-    void refineMesh() {
+    void roughRefineMesh() {
         // create a global zone for refinement
         std::vector<Triangle2*> allTriangles;
         mesh->getTrianglePointers(allTriangles);
@@ -378,6 +378,29 @@ struct GlobalMesh {
         mesh->refine(refineZone, 20, 1, 500, true);
         std::cout << "Global refinement complete. Mesh has " << mesh->numberOfPoints() <<
             " points after refinement" << std::endl;
+
+        mesh->deleteZone(refineZone);
+    }
+
+    /*
+    Sequentially refine the entire mesh.
+    */
+    void refineMesh() {
+        // create a global zone for refinement
+        std::vector<Triangle2*> allTriangles;
+        mesh->getTrianglePointers(allTriangles);
+        Zone2* refineZone = mesh->createZone(allTriangles);
+        refineZone = refineZone->convertToBoundedZone();
+        assert(refineZone != NULL);
+
+        // refine the global zone
+        std::cout << "Global refinement zone created. Global refinement starting..." << std::endl;
+        mesh->refine(refineZone, runtimeParameters.minAngle, 
+            runtimeParameters.minEdgeLength, runtimeParameters.maxEdgeLength, false);
+        std::cout << "Global refinement complete. Mesh has " << mesh->numberOfPoints() <<
+            " points after refinement" << std::endl;
+
+        mesh->deleteZone(refineZone);
     }
 
     /*
