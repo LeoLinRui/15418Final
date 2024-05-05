@@ -143,6 +143,7 @@ int main(int argc, char** argv) {
         }
 
         globalMesh.loadFromLocalMeshes(localMeshes);
+        globalMesh.refineMesh();
         globalMesh.visualizePoints();
         globalMesh.visualizeTriangles();
         globalMesh.saveVisualization();
