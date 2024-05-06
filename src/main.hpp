@@ -116,6 +116,8 @@ struct SerializableMesh {
 private:
     std::shared_ptr<Fade_2D> mesh;
 
+    // Efficient serialization
+    std::vector<std::pair<double, double>> serializablePoints;
 public:
     SerializableMesh() : mesh(std::make_shared<Fade_2D>()) {}
 
@@ -131,6 +133,7 @@ public:
     void serialize(Archive & archive, const unsigned version) {
         std::string meshData;
         if (Archive::is_saving::value) {
+            /*
             // Serialization
             std::ostringstream stream;
 
@@ -143,8 +146,15 @@ public:
             std::vector<Zone2*> zoneVector = { saveZone };
             getMesh()->saveTriangulation(stream, zoneVector);
             meshData = stream.str();
+            */
+            
+            std::vector<Point2*> points;
+            getMesh()->getVertexPointers(points);
+            for (auto& point : points) {
+                serializablePoints.push_back({point->x(), point->y()});
+            }
         }
-        archive & meshData;
+        archive & serializablePoints;
         if (Archive::is_loading::value) {
             // Deserialization
             /*
@@ -153,10 +163,16 @@ public:
                     << getMesh()->numberOfTriangles() << " triangles\n";
                 throw std::runtime_error("Deserializing into a non-empty mesh");
             }
-            */
+            
             std::stringstream stream(meshData);
             std::vector<Zone2*> zoneVector;
             getMesh()->load(stream, zoneVector);
+            */
+            std::vector<Point2> pointsToInsert;
+            for (auto& point : serializablePoints) {
+                pointsToInsert.push_back(Point2(point.first, point.second));
+            }
+            getMesh()->insert(pointsToInsert);
         }
     }
 };

@@ -63,8 +63,6 @@ int main(int argc, char** argv) {
             taskGroupIndex++;
             break;
         }
-        //std::cout << "[Thread " << world.rank() << "] Starting task group " << taskGroupIndex << std::endl;
-        //world.barrier();
 
         // post all async receives
         for (auto& task : taskGroup.receiveTasks) {
@@ -138,7 +136,6 @@ int main(int argc, char** argv) {
         }
         taskGroupIndex++;
     }
-    world.barrier();
 
     // End of parallel compute
     if (world.rank() == 0) {
