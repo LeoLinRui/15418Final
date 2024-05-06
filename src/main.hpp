@@ -29,7 +29,7 @@ struct RuntimeParameters {
     double minEdgeLength;
     double maxEdgeLength;
 
-    RuntimeParameters() : numProcessors(1), minAngle(27), minEdgeLength(0.0), maxEdgeLength(15.0) {
+    RuntimeParameters() : numProcessors(2), minAngle(27), minEdgeLength(0.0), maxEdgeLength(15.0) {
     }
 
     RuntimeParameters(int argc, char** argv) {
@@ -44,7 +44,7 @@ struct RuntimeParameters {
             //("input,i", po::value<std::string>(&inFilePath)->required(), "input file path")
             //("output,o", po::value<std::string>(&outFilePath)->required(), "output file path")
             ("num-random-points,n", po::value<size_t>(&numRandomPoints)->default_value(10000), "number of randomly generated points")
-            ("processors,p", po::value<int>(&numProcessors)->default_value(1), "number of processors")
+            ("processors,p", po::value<int>(&numProcessors)->default_value(2), "number of processors")
             ("min-angle,a", po::value<double>(&minAngle)->default_value(27), "minimum angle")
             ("min-edge-length,m", po::value<double>(&minEdgeLength)->default_value(0.0), "minimum edge length")
             ("max-edge-length,M", po::value<double>(&maxEdgeLength)->default_value(20.0), "maximum edge length");

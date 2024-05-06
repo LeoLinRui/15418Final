@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     std::vector<MeshUpdate> outgoingUpdates;
     std::vector<TaskGroup> taskGroups = initializeTaskGroups();
 
-    setGlobalNumCPU(1);
+    setGlobalNumCPU(2);
 
     // print PID with rank
     //std::cout << "Rank " << world.rank() << " PID " << getpid() << std::endl;
@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     // load and preprocess mesh sequentially, scatter localMeshes to workers
     if (world.rank() == 0) {
         // load mesh file and perform initial sequential refinement
-        std::cout << "main process using " << setGlobalNumCPU(0) <<" threads" << std::endl;
+        std::cout << "main process using " << setGlobalNumCPU(runtimeParameters.numProcessors * 2) <<" threads" << std::endl;
         timer.start("Loading Input");
         globalMesh.loadFromRandom();
         timer.stop("Loading Input");
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
         globalMesh.roughRefineMesh();
         timer.stop("Global Sequential Refine");
 
-        setGlobalNumCPU(1);
+        setGlobalNumCPU(2);
 
         // split globalMesh into localMeshes and send them to threads
         std::vector<LocalMesh> localMeshes = globalMesh.splitMesh(world.size(), false);
@@ -150,7 +150,7 @@ int main(int argc, char** argv) {
         timer.stop("Gather Result Mesh");
 
         timer.start("Combine Result Mesh");
-        std::cout << "main process using " << setGlobalNumCPU(0) <<" threads" << std::endl;
+        std::cout << "main process using " << setGlobalNumCPU(runtimeParameters.numProcessors * 2) <<" threads" << std::endl;
         globalMesh.loadFromLocalMeshes(resultPoints);
         timer.stop("Combine Result Mesh");
 
